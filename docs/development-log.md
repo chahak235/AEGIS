@@ -9,3 +9,10 @@
 - Implemented: learning/first_script.py (prints a message, an example event type, and the interpreter path).
 - Verified: script runs using the interpreter inside .venv.
 - Limitations: no tests yet; nothing AEGIS-specific is implemented.
+
+## Phase 1, Lesson 2: Variables and data types
+- Learned: variables, str/int/float/bool/None, comparison operators, f-strings.
+- Implemented: learning/lesson2_types.py (an example event as variables, plus a threshold comparison).
+- Verified: output matched the expected result.
+- Debugging practised: TypeError (str + int), NameError (typo), assignment vs comparison.
+- Limitations: values are hard-coded; no real event structure yet.
