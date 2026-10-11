@@ -28,3 +28,9 @@
 - Implemented: learning/lesson4_loops.py (counts failed logins across a list of events and applies a threshold).
 - Verified: output matched the expected result (5 failures, detection raised).
 - Limitations: counts all events together; ignores which account and time window, so it is not a real AUTH-001 yet.
+
+## Phase 1, Lesson 5: Dictionaries
+- Learned: dict key-value pairs, d[key] vs d.get(key, default), .items(), nested list of dicts, per-key counting.
+- Implemented: learning/lesson5_dicts.py (events as dicts, failed logins counted per account, threshold rule applied per account).
+- Verified: output matched the expected result (user-123 detected, user-456 not).
+- Limitations: no timestamps, so no time window yet; data is still hard-coded.
