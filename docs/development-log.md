@@ -16,3 +16,9 @@
 - Verified: output matched the expected result.
 - Debugging practised: TypeError (str + int), NameError (typo), assignment vs comparison.
 - Limitations: values are hard-coded; no real event structure yet.
+
+## Phase 1, Lesson 3: Conditions and string basics
+- Learned: if/elif/else, indentation, and/or/not, .lower(), .startswith(), f-strings.
+- Implemented: learning/lesson3_conditions.py (normalizes an event type, applies a threshold rule with a severity ladder).
+- Verified: output matched the expected result.
+- Limitations: one hard-coded event; no loops yet, so cannot process many events.
