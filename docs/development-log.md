@@ -22,3 +22,9 @@
 - Implemented: learning/lesson3_conditions.py (normalizes an event type, applies a threshold rule with a severity ladder).
 - Verified: output matched the expected result.
 - Limitations: one hard-coded event; no loops yet, so cannot process many events.
+
+## Phase 1, Lesson 4: Lists and loops
+- Learned: lists, indexing (including negative), len(), append(), for loops, enumerate, the counter pattern.
+- Implemented: learning/lesson4_loops.py (counts failed logins across a list of events and applies a threshold).
+- Verified: output matched the expected result (5 failures, detection raised).
+- Limitations: counts all events together; ignores which account and time window, so it is not a real AUTH-001 yet.
