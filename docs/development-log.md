@@ -34,3 +34,9 @@
 - Implemented: learning/lesson5_dicts.py (events as dicts, failed logins counted per account, threshold rule applied per account).
 - Verified: output matched the expected result (user-123 detected, user-456 not).
 - Limitations: no timestamps, so no time window yet; data is still hard-coded.
+
+## Phase 1, Lesson 6: Functions
+- Learned: def, parameters vs arguments, return vs print, default and keyword arguments, docstrings, local scope.
+- Implemented: learning/lesson6_functions.py (count_failed_by_actor, detect_repeated_failures returning explainable detection dicts, make_event helper).
+- Verified: output matched the expected result.
+- Limitations: no time window or timestamps; no automated tests yet (manual checking only).
