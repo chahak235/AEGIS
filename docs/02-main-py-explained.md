@@ -1,4 +1,4 @@
-# Lesson 2: main.py explained
+﻿# Lesson 2: main.py explained
 
 - import = bring in a library's tool
 - app = FastAPI(...) = create the application object
