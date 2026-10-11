@@ -2,7 +2,7 @@
 from typing import Literal, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class EventIn(BaseModel):
@@ -23,5 +23,8 @@ class EventIn(BaseModel):
 class EventOut(EventIn):
     """What AEGIS sends back: the same fields plus ones we add."""
 
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID
     ingested_at: datetime
+
