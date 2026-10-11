@@ -40,3 +40,9 @@
 - Implemented: learning/lesson6_functions.py (count_failed_by_actor, detect_repeated_failures returning explainable detection dicts, make_event helper).
 - Verified: output matched the expected result.
 - Limitations: no time window or timestamps; no automated tests yet (manual checking only).
+
+## Phase 1, Lesson 7: Modules, packages and first tests
+- Learned: modules vs packages, import forms, sys.path, pytest basics, assert, arrange/act/assert, boundary testing.
+- Implemented: backend/app/rules.py (AUTH-001 simplified rule, helpers), backend/tests/test_rules.py (8 tests), pytest.ini, requirements-dev.txt.
+- Verified: 8 tests pass. Deliberately introduced a >= to > bug; 2 tests failed as expected; bug reverted and all 8 passed again.
+- Limitations: rule ignores timestamps and time windows; events are minimal dicts without validation.
