@@ -24,6 +24,7 @@ class Event(Base):
     resource: Mapped[str | None] = mapped_column(String(200), nullable=True)
     outcome: Mapped[str] = mapped_column(String(20))
     details: Mapped[dict] = mapped_column(JSONB, default=dict)
+    severity_hint: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
     __table_args__ = (
         Index("ix_events_actor_occurred", "actor_id", "occurred_at"),
