@@ -1,4 +1,4 @@
-# Python virtual environment
+﻿# Python virtual environment
 .venv/
 
 # Python cache
@@ -18,10 +18,4 @@ __pycache__/
 Thumbs.db
 
 # Test caches
-.pytest_cache/
-
-# Pytest cache
-.pytest_cache/
-
-# Pytest cache
 .pytest_cache/
