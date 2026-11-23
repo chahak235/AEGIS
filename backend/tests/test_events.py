@@ -3,7 +3,7 @@ from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import delete
+from sqlalchemy import delete, func, select
 from sqlalchemy.exc import OperationalError
 
 from app.db import SessionLocal
@@ -104,6 +104,30 @@ def test_huge_details_are_rejected(actor):
     huge = {"junk": "x" * 10_000}  # about 10 KB, over the 8 KB limit
     response = client.post("/api/v1/events", json=make_event(actor, details=huge))
     assert response.status_code == 422
+
+
+def test_retry_with_same_event_id_is_stored_once(actor):
+    event = make_event(actor, event_id=str(uuid4()))
+    first = client.post("/api/v1/events", json=event)
+    second = client.post("/api/v1/events", json=event)  # the "retry"
+    assert first.status_code == 201
+    assert second.status_code == 200
+    assert first.json()["id"] == second.json()["id"] == event["event_id"]
+    with SessionLocal() as session:
+        count = session.scalar(
+            select(func.count()).select_from(Event).where(Event.actor_id == actor)
+        )
+    assert count == 1
+
+
+def test_events_without_event_id_are_all_stored(actor):
+    client.post("/api/v1/events", json=make_event(actor))
+    client.post("/api/v1/events", json=make_event(actor))
+    with SessionLocal() as session:
+        count = session.scalar(
+            select(func.count()).select_from(Event).where(Event.actor_id == actor)
+        )
+    assert count == 2
 
 
 def test_get_event_by_id(actor):

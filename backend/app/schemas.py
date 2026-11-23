@@ -9,8 +9,8 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validato
 MAX_DETAILS_BYTES = 8 * 1024
 
 
-class EventIn(BaseModel):
-    """What a client sends to AEGIS."""
+class EventBase(BaseModel):
+    """Fields shared by what clients send and what AEGIS returns."""
 
     event_type: str = Field(
         pattern=r"^[a-z]+(\.[a-z]+)+$",
@@ -35,8 +35,16 @@ class EventIn(BaseModel):
         return value
 
 
-class EventOut(EventIn):
-    """What AEGIS sends back: the same fields plus ones we add."""
+class EventIn(EventBase):
+    """What a client sends to AEGIS."""
+
+    # Optional. If the client picks the ID itself, it can safely retry:
+    # sending the same event_id twice stores the event only once.
+    event_id: Optional[UUID] = None
+
+
+class EventOut(EventBase):
+    """What AEGIS sends back: the shared fields plus ones we add."""
 
     model_config = ConfigDict(from_attributes=True)
 
