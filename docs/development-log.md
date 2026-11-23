@@ -58,7 +58,7 @@
 - Verified: 7 tests passing against the database.
 - Limitations at the time: tests used the real database; see the review below.
 
-## Review and hardening (commits 6629ef0 – df2b5ed)
+## Review and hardening (commits c33fb71 – 9029029)
 - Wrote docs/00-start-here.md: a full walkthrough of the code and a review listing 9 problems.
 - Fixed:
   - occurred_at must include a timezone (AwareDatetime).

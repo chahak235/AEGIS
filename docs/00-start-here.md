@@ -362,14 +362,14 @@ A first review (at commit `baa0d70`) found 9 problems a professional reviewer wo
 
 | # | Problem | Why it mattered | What we did | Status |
 |---|---|---|---|---|
-| 1 | **Tests wrote into the real database** | A buggy cleanup could delete real data; slow; fails without Wi-Fi | `conftest.py` forces a separate `TEST_DATABASE_URL` and refuses to run without one; `docker-compose.yml` provides a throw-away test PostgreSQL | ✅ `df2b5ed` |
-| 2 | `occurred_at` accepted times **without a timezone** | "10:00" in India and in London are 5.5 h apart, so time-window rules would be wrong | `AwareDatetime`: no timezone → 422 | ✅ `0d60fb7` |
-| 3 | `/health/ready` always said "ready" | Cloud platforms would send traffic to a broken app | Runs `SELECT 1`; database down → **503**, with no internal error text leaked | ✅ `b290f97` |
-| 4 | Unused `severity_hint` column | Dead columns confuse readers | Migration `30fd34b8e04c` drops it (checked first: 0 rows, nothing lost) | ✅ `60bac95` |
-| 5 | `details` had no size limit | One client could send huge events and fill the database | `details` max 8 KB → otherwise 422 | ✅ `6156fda` |
-| 6 | The same event sent twice was saved twice | Network retries create fake "5 failed logins" alerts | Optional `event_id`: a retry returns the saved event with 200 instead of saving again | ✅ `38d34c8` |
-| 7 | Two `requirements-dev.txt` files | Which one is real? | Root one deleted; use `backend/requirements-dev.txt` | ✅ `a996a10` |
-| 8 | Development log out of date | The diary didn't match reality | Log brought up to date | ✅ `0c0a7e8` |
+| 1 | **Tests wrote into the real database** | A buggy cleanup could delete real data; slow; fails without Wi-Fi | `conftest.py` forces a separate `TEST_DATABASE_URL` and refuses to run without one; `docker-compose.yml` provides a throw-away test PostgreSQL | ✅ `9029029` |
+| 2 | `occurred_at` accepted times **without a timezone** | "10:00" in India and in London are 5.5 h apart, so time-window rules would be wrong | `AwareDatetime`: no timezone → 422 | ✅ `9eb962a` |
+| 3 | `/health/ready` always said "ready" | Cloud platforms would send traffic to a broken app | Runs `SELECT 1`; database down → **503**, with no internal error text leaked | ✅ `96769ca` |
+| 4 | Unused `severity_hint` column | Dead columns confuse readers | Migration `30fd34b8e04c` drops it (checked first: 0 rows, nothing lost) | ✅ `12ae44f` |
+| 5 | `details` had no size limit | One client could send huge events and fill the database | `details` max 8 KB → otherwise 422 | ✅ `f472a1f` |
+| 6 | The same event sent twice was saved twice | Network retries create fake "5 failed logins" alerts | Optional `event_id`: a retry returns the saved event with 200 instead of saving again | ✅ `da9df6f` |
+| 7 | Two `requirements-dev.txt` files | Which one is real? | Root one deleted; use `backend/requirements-dev.txt` | ✅ `48e6ed3` |
+| 8 | Development log out of date | The diary didn't match reality | Log brought up to date | ✅ `19a13b1` |
 | 9 | Deprecation warning from the test client | Harmless today | Revisit when upgrading libraries | ⏳ later |
 
 **Still open (known limitations):**
