@@ -51,3 +51,37 @@ class EventOut(EventBase):
     id: UUID
     ingested_at: datetime
 
+
+class DetectionOut(BaseModel):
+    """A detection in a list: the finding, without its evidence events."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    rule_code: str
+    severity: str
+    actor_id: str
+    window_start: datetime
+    window_end: datetime
+    event_count: int
+    explanation: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class DetectionDetailOut(DetectionOut):
+    """One detection with its evidence: the actual events that triggered it."""
+
+    events: list[EventOut]
+
+
+class RuleOut(BaseModel):
+    """A rule from the catalogue, so users can see exactly what each code means."""
+
+    code: str
+    name: str
+    description: str
+    severity: str
+    window_seconds: int
+    threshold: int
+
