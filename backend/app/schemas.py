@@ -85,3 +85,67 @@ class RuleOut(BaseModel):
     window_seconds: int
     threshold: int
 
+
+
+# --- Incidents ---------------------------------------------------------------
+
+IncidentStatus = Literal["open", "acknowledged", "investigating", "resolved", "closed"]
+Resolution = Literal["true_positive", "false_positive", "benign", "duplicate"]
+Severity = Literal["low", "medium", "high", "critical"]
+
+
+class IncidentOut(BaseModel):
+    """An incident in the queue (list view)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    title: str
+    actor_id: str
+    severity: str
+    status: str
+    assigned_to: Optional[str]
+    correlation_reason: str
+    first_seen: datetime
+    last_seen: datetime
+    resolution: Optional[str]
+    resolution_note: Optional[str]
+    resolved_at: Optional[datetime]
+    created_at: datetime
+    updated_at: datetime
+
+
+class NoteIn(BaseModel):
+    body: str = Field(min_length=1, max_length=5000)
+
+
+class NoteOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    author: str
+    body: str
+    created_at: datetime
+
+
+class IncidentDetailOut(IncidentOut):
+    """One incident with everything an analyst needs to investigate it."""
+
+    detections: list[DetectionOut]
+    timeline: list[EventOut]   # every evidence event from every detection, oldest first
+    notes: list[NoteOut]
+
+
+class IncidentUpdate(BaseModel):
+    """Fields an analyst may change. Leave a field out to keep it as it is.
+
+    Rules (checked by the API):
+    * status must follow the allowed transitions (otherwise 409 Conflict);
+    * moving to "resolved" requires a resolution;
+    * a resolution may only be given together with status "resolved".
+    """
+
+    status: Optional[IncidentStatus] = None
+    assigned_to: Optional[str] = Field(default=None, max_length=100)
+    resolution: Optional[Resolution] = None
+    resolution_note: Optional[str] = Field(default=None, max_length=5000)
