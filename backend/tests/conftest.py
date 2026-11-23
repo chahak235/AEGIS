@@ -53,12 +53,20 @@ def pytest_collection_modifyitems(config, items):
 
 def delete_everything_for(actor_id: str) -> None:
     """Remove all rows a test created for one account, in an order the foreign keys allow."""
-    from sqlalchemy import delete
+    from sqlalchemy import delete, select, text
 
     from app.db import SessionLocal
-    from app.models import Detection, Event, Incident
+    from app.models import AuditLog, Detection, Event, Incident
 
     with SessionLocal() as session:
+        incident_ids = [str(i) for i in session.scalars(
+            select(Incident.id).where(Incident.actor_id == actor_id))]
+        if incident_ids:
+            # The audit log is append-only. Deleting needs this explicit switch,
+            # which only exists for clean-ups like this one (see the migration).
+            session.execute(text("SET LOCAL aegis.allow_audit_delete = 'on'"))
+            session.execute(delete(AuditLog).where(
+                AuditLog.target_type == "incident", AuditLog.target_id.in_(incident_ids)))
         session.execute(delete(Incident).where(Incident.actor_id == actor_id))  # notes go too
         session.execute(delete(Detection).where(Detection.actor_id == actor_id))  # links go too
         session.execute(delete(Event).where(Event.actor_id == actor_id))

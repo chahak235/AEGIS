@@ -1,15 +1,17 @@
 from datetime import datetime, timezone
 from typing import Optional
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from app import audit
 from app.deps import current_username, get_session
 from app.incidents.lifecycle import InvalidTransition, check_transition
-from app.models import Detection, Incident, IncidentNote
+from app.models import AuditLog, Detection, Incident, IncidentNote
 from app.schemas import (
+    AuditOut,
     IncidentDetailOut,
     IncidentOut,
     IncidentStatus,
@@ -101,23 +103,31 @@ def update_incident(
             # 409 Conflict: the request is valid, but not allowed in the incident's current state.
             raise HTTPException(status_code=409, detail=str(error))
 
+        details = {"from": incident.status, "to": changes.status}
         if changes.status == "resolved":
             if changes.resolution is None:
                 raise HTTPException(422, "Resolving an incident requires a resolution.")
             incident.resolution = changes.resolution
             incident.resolution_note = changes.resolution_note
             incident.resolved_at = datetime.now(timezone.utc)
+            details["resolution"] = changes.resolution
         elif incident.status == "resolved" and changes.status == "investigating":
-            # Reopened: the old conclusion no longer applies.
+            # Reopened: the old conclusion no longer applies (but the audit log keeps it).
+            details["previous_resolution"] = incident.resolution
             incident.resolution = None
             incident.resolution_note = None
             incident.resolved_at = None
         incident.status = changes.status
+        audit.record(session, actor=username, action="incident.status_changed",
+                     target_type="incident", target_id=incident.id, details=details)
 
-    if "assigned_to" in sent:
+    if "assigned_to" in sent and changes.assigned_to != incident.assigned_to:
+        audit.record(session, actor=username, action="incident.assigned",
+                     target_type="incident", target_id=incident.id,
+                     details={"from": incident.assigned_to, "to": changes.assigned_to})
         incident.assigned_to = changes.assigned_to  # null = unassign
 
-    session.commit()
+    session.commit()  # the changes AND their audit records, together
     return _detail(_load_incident(session, incident_id))
 
 
@@ -134,8 +144,22 @@ def add_note(
         raise HTTPException(status_code=404, detail="Incident not found")
     if incident.status == "closed":
         raise HTTPException(status_code=409, detail="Incident is closed; no more notes.")
-    row = IncidentNote(incident_id=incident.id, author=username, body=note.body)
+    row = IncidentNote(id=uuid4(), incident_id=incident.id, author=username, body=note.body)
     session.add(row)
+    audit.record(session, actor=username, action="incident.note_added",
+                 target_type="incident", target_id=incident.id, details={"note_id": str(row.id)})
     session.commit()
     session.refresh(row)
     return row
+
+
+@router.get("/{incident_id}/audit", response_model=list[AuditOut])
+def incident_audit(incident_id: UUID, session: Session = Depends(get_session)):
+    """The full history of one incident: who changed what, oldest first."""
+    if session.get(Incident, incident_id) is None:
+        raise HTTPException(status_code=404, detail="Incident not found")
+    return session.scalars(
+        select(AuditLog)
+        .where(AuditLog.target_type == "incident", AuditLog.target_id == str(incident_id))
+        .order_by(AuditLog.seq)
+    ).all()

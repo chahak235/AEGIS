@@ -149,3 +149,17 @@ class IncidentUpdate(BaseModel):
     assigned_to: Optional[str] = Field(default=None, max_length=100)
     resolution: Optional[Resolution] = None
     resolution_note: Optional[str] = Field(default=None, max_length=5000)
+
+
+# --- Audit -------------------------------------------------------------------
+
+class AuditOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    occurred_at: datetime
+    actor: str
+    action: str
+    target_type: str
+    target_id: str
+    details: dict

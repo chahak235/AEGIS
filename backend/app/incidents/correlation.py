@@ -20,9 +20,12 @@ finished work is silently changed.
 
 from __future__ import annotations
 
+from uuid import uuid4
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app import audit
 from app.detection.rules import RULES
 from app.incidents.lifecycle import (
     ACTIVE_STATUSES,
@@ -53,8 +56,10 @@ def correlate(session: Session, detection: Detection) -> Incident:
         .limit(1)
     ).first()
 
-    if incident is None:
+    created = incident is None
+    if created:
         incident = Incident(
+            id=uuid4(),  # set now (not at save time) so the audit record can refer to it
             actor_id=detection.actor_id,
             status="open",
             title="",
@@ -68,6 +73,16 @@ def correlate(session: Session, detection: Detection) -> Incident:
 
     incident.detections.append(detection)
     refresh_summary(incident)
+
+    # Automatic actions are audited too, with actor "system".
+    if created:
+        audit.record(session, actor=audit.SYSTEM, action="incident.created",
+                     target_type="incident", target_id=incident.id,
+                     details={"rule_code": detection.rule_code, "severity": incident.severity})
+    else:
+        audit.record(session, actor=audit.SYSTEM, action="incident.detection_added",
+                     target_type="incident", target_id=incident.id,
+                     details={"rule_code": detection.rule_code, "severity": incident.severity})
     return incident
 
 
