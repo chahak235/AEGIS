@@ -70,3 +70,13 @@
   - Tests now use a separate database (TEST_DATABASE_URL), refuse to run without one, and apply Alembic migrations to it first. Added docker-compose.yml with a throw-away test PostgreSQL and backend/.env.example.
 - Verified: 14 tests pass against a database other than DATABASE_URL; tests refuse to start when TEST_DATABASE_URL is missing.
 - Limitations: whole-request size is not limited yet (only details); the Docker test database has not yet been run on this PC because Docker Desktop is not installed yet.
+
+## Phase 8: Rule-based detection
+- Implemented:
+  - backend/app/detection/rules.py: 5 rules (AUTH-001, AUTH-002, ACCESS-001, ACCOUNT-001, API-001), a sliding-window (two-pointer) matcher, and an explanation sentence per rule.
+  - backend/app/detection/engine.py: runs the rules after every new event, looking 10 min either side; extends an existing detection (same rule, account, overlapping time) instead of creating duplicates.
+  - detections + detection_events tables (migration 68178dad4e86); evidence events cannot be deleted while a detection uses them.
+  - GET /api/v1/detections (filters), GET /api/v1/detections/{id} (with evidence), GET /api/v1/rules.
+  - Test setup: unit tests run without a database; database tests are marked `db` and skipped, with the reason shown, when TEST_DATABASE_URL is missing.
+- Verified: 50 tests pass (21 rule unit tests, 9 engine tests, 6 API tests, 14 event tests). Without a test database: 22 pass, 28 skipped. Test runs leave no rows behind.
+- Limitations: per-account rules only; dedup is not safe against two simultaneous requests; detection runs inside the web request; no API-002 yet. See docs/detection-rules.md section 8.

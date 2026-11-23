@@ -48,15 +48,15 @@ The whole journey AEGIS will eventually handle:
 | Event is saved permanently | ✅ Yes | `backend/app/models.py`, `backend/app/db.py`, Neon PostgreSQL |
 | Saved events can be listed / fetched | ✅ Yes | `backend/app/api/v1/events.py` |
 | Health check ("is the app alive?") | ✅ Yes | `backend/app/api/health.py` |
-| Automated tests | ✅ 14 tests, on a separate test database | `backend/tests/` |
+| Automated tests | ✅ 50 tests (database tests use a separate test database) | `backend/tests/` |
 | Database version history | ✅ Yes | `backend/alembic/` |
-| Detection rules | ❌ Not yet | (a practice version existed in Lesson 7, later removed) |
+| Detection rules (5 rules) | ✅ Yes | `backend/app/detection/`, explained in [detection-rules.md](detection-rules.md) |
 | Correlation, incidents | ❌ Not yet | |
 | Login, passwords, roles | ❌ Not yet | |
 | Web dashboard | ❌ Not yet | |
 | Docker, cloud hosting, CI | ❌ Not yet | |
 
-So: **the "front door" and the "filing cabinet" exist. The "brain" (detection) and the "screen" (dashboard) do not yet.**
+So: **the "front door", the "filing cabinet" and the first part of the "brain" (detection rules) exist. Incidents and the "screen" (dashboard) do not yet.**
 
 ---
 
@@ -86,20 +86,28 @@ AEGIS/
     │   ├── env.py            Tells Alembic how to connect to our database
     │   └── versions/
     │       ├── cbf2b017960c_create_events_table.py            Version 1: create the events table
-    │       └── 30fd34b8e04c_drop_unused_severity_hint_...py   Version 2: remove an unused column
+    │       ├── 30fd34b8e04c_drop_unused_severity_hint_...py   Version 2: remove an unused column
+    │       └── 68178dad4e86_create_detections_and_...py       Version 3: detections + link table
     ├── app/
     │   ├── main.py           The starting point. Creates the app and plugs in all the routes.
     │   ├── db.py             Opens the connection to PostgreSQL
     │   ├── deps.py           Hands each request its own database "session"
-    │   ├── models.py         Describes the events TABLE (what is stored in the database)
+    │   ├── models.py         Describes the TABLES: events, detections, detection_events
     │   ├── schemas.py        Describes the event JSON (what clients send and receive)
+    │   ├── detection/
+    │   │   ├── rules.py      The 5 detection rules (pure logic, no database)
+    │   │   └── engine.py     Runs the rules on each new event, saves detections
     │   └── api/
     │       ├── health.py     /health/live and /health/ready
     │       └── v1/
-    │           └── events.py POST and GET for /api/v1/events
+    │           ├── events.py      POST and GET for /api/v1/events
+    │           └── detections.py  GET /api/v1/detections and /api/v1/rules
     └── tests/
-        ├── conftest.py       Shared setup: points tests at the TEST database, never the real one
-        └── test_events.py    14 automatic checks
+        ├── conftest.py                Shared setup: database tests use the TEST database, never the real one
+        ├── test_events.py             14 checks: saving and reading events
+        ├── test_rules.py              21 checks: each rule, no database needed
+        ├── test_detection_engine.py   9 checks: events in, detections out
+        └── test_detections_api.py     6 checks: reading detections
 ```
 
 > **Why are there empty `__init__.py` files?** They tell Python "this folder is a **package**", which means other files can `import` from it (e.g. `from app.models import Event`). Without them, newer Python can often still find things, but being explicit avoids confusing import errors.
@@ -342,7 +350,7 @@ The test database is a throw-away PostgreSQL started by `docker compose up -d` (
 | `test_unknown_event_is_404` | Missing IDs → 404 |
 | `test_list_respects_limit` | `limit=2` returns at most 2 |
 
-Run them from the `D:\AEGIS` folder with `python -m pytest` (virtual environment active). Expected: **14 passed**.
+Run them from the `D:\AEGIS` folder with `python -m pytest` (virtual environment active). Expected: **50 passed** with a test database, or **22 passed, 28 skipped** without one (the skip reason is printed).
 
 > **Faking a broken database:** `app.dependency_overrides[get_session] = ...` tells FastAPI "for this test, hand out this fake session instead of the real one". That is how we test the "database is down" path without actually breaking a database. This swap is a big benefit of dependency injection (section 4, step 5).
 

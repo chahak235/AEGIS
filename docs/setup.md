@@ -52,7 +52,7 @@ pip install -r backend\requirements-dev.txt
 ## 4. Start the test database
 
 Tests create and delete data. They must **never** run against the real database, so they use a separate one.
-If `TEST_DATABASE_URL` is missing, or equals `DATABASE_URL`, the tests refuse to start. That is deliberate.
+If `TEST_DATABASE_URL` is missing, database tests are **skipped** (with the reason printed). If it equals `DATABASE_URL`, the tests **refuse to start**. Both are deliberate.
 
 **Option A: Docker (recommended: fast, works offline)**
 1. Open Docker Desktop and wait for **Engine running**.
@@ -87,7 +87,9 @@ python -m pytest
 
 **Clicking way:** in Cursor, open the **Testing** panel (flask icon on the left), then press the ▶ button. Install the Python extension if the panel is empty.
 
-Expected: **14 passed**.
+Expected: **50 passed**.
+
+Without a test database you will see **22 passed, 28 skipped** and the line `SKIPPED [...] TEST_DATABASE_URL is not set`. The 22 are the unit tests (detection rules and the rule catalogue), which need no database. The 28 database tests are skipped on purpose, so they never touch your real data.
 
 ## 7. Run the app and click it
 
