@@ -1,4 +1,5 @@
-﻿from uuid import uuid4
+﻿from datetime import datetime, timezone
+from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
@@ -57,6 +58,23 @@ def test_bad_outcome_is_rejected(actor):
 def test_bad_event_type_is_rejected(actor):
     response = client.post("/api/v1/events", json=make_event(actor, event_type="Auth Login"))
     assert response.status_code == 422
+
+
+def test_time_without_timezone_is_rejected(actor):
+    response = client.post(
+        "/api/v1/events", json=make_event(actor, occurred_at="2026-10-11T10:00:01")
+    )
+    assert response.status_code == 422
+
+
+def test_time_with_offset_is_accepted(actor):
+    response = client.post(
+        "/api/v1/events", json=make_event(actor, occurred_at="2026-10-11T15:30:01+05:30")
+    )
+    assert response.status_code == 201
+    # 15:30 in India (+05:30) is 10:00 UTC: same moment, different clock.
+    saved = datetime.fromisoformat(response.json()["occurred_at"])
+    assert saved == datetime(2026, 10, 11, 10, 0, 1, tzinfo=timezone.utc)
 
 
 def test_get_event_by_id(actor):

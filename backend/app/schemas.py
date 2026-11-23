@@ -2,7 +2,7 @@
 from typing import Literal, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
 
 class EventIn(BaseModel):
@@ -12,7 +12,9 @@ class EventIn(BaseModel):
         pattern=r"^[a-z]+(\.[a-z]+)+$",
         examples=["auth.login.failed"],
     )
-    occurred_at: datetime
+    # AwareDatetime = the time MUST include a timezone ("Z" or "+05:30").
+    # Without one, "10:00" is ambiguous and time-window rules would be wrong.
+    occurred_at: AwareDatetime
     source: str = Field(min_length=1, max_length=100)
     actor_id: str = Field(min_length=1, max_length=100)
     resource: Optional[str] = Field(default=None, max_length=200)
