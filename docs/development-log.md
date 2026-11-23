@@ -46,3 +46,27 @@
 - Implemented: backend/app/rules.py (AUTH-001 simplified rule, helpers), backend/tests/test_rules.py (8 tests), pytest.ini, requirements-dev.txt.
 - Verified: 8 tests pass. Deliberately introduced a >= to > bug; 2 tests failed as expected; bug reverted and all 8 passed again.
 - Limitations: rule ignores timestamps and time windows; events are minimal dicts without validation.
+- Later: rules.py was removed (commit 84d88f0) and test_rules.py disabled (commit d059448) while the API was being built. AUTH-001 will be rebuilt properly, with time windows, in the detection phase.
+
+## Phase 4: First FastAPI application (commits 3ac098b – 1ca8582)
+- Implemented: backend/app/main.py, home route, /health/live and /health/ready, event schema (Pydantic), POST/GET /api/v1/events, GET /api/v1/events/{id}, routers under /api/v1.
+- Verified: pytest tests using FastAPI TestClient.
+- Limitations at the time: events kept only in memory (lost on restart).
+
+## Phase 5–6: PostgreSQL, SQLAlchemy and Alembic (commits b2704d6 – baa0d70)
+- Implemented: Neon PostgreSQL connection (backend/app/db.py, secret in backend/.env), Event model with indexes on (actor_id, occurred_at) and (event_type, occurred_at), one session per request (deps.py), pagination (limit/offset), first Alembic migration cbf2b017960c creating the events table.
+- Verified: 7 tests passing against the database.
+- Limitations at the time: tests used the real database; see the review below.
+
+## Review and hardening (commits 6629ef0 – df2b5ed)
+- Wrote docs/00-start-here.md: a full walkthrough of the code and a review listing 9 problems.
+- Fixed:
+  - occurred_at must include a timezone (AwareDatetime).
+  - /health/ready runs SELECT 1 and answers 503 if the database is unreachable.
+  - details limited to 8 KB.
+  - Optional client event_id: a retried event is stored once (201 first time, 200 on retry).
+  - Dropped the unused severity_hint column (migration 30fd34b8e04c; table had 0 rows, nothing lost).
+  - Removed the duplicate root requirements-dev.txt.
+  - Tests now use a separate database (TEST_DATABASE_URL), refuse to run without one, and apply Alembic migrations to it first. Added docker-compose.yml with a throw-away test PostgreSQL and backend/.env.example.
+- Verified: 14 tests pass against a database other than DATABASE_URL; tests refuse to start when TEST_DATABASE_URL is missing.
+- Limitations: whole-request size is not limited yet (only details); the Docker test database has not yet been run on this PC because Docker Desktop is not installed yet.
