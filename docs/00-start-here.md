@@ -3,7 +3,8 @@
 > **Who this is for:** someone opening this project for the first time, even if they have never built software before.
 > **What you will know after reading it:** what AEGIS does, every file that exists today, how one piece of data travels through the code, why each technology was picked, and what is still missing.
 >
-> **Status of this document:** describes the repository as of commit `baa0d70` (7 automated tests passing).
+> **Status of this document:** first written at commit `baa0d70` (7 tests). Updated after the review fixes in section 8 (14 tests, all passing).
+> **To install and run the project, see [setup.md](setup.md).**
 
 ---
 
@@ -47,7 +48,7 @@ The whole journey AEGIS will eventually handle:
 | Event is saved permanently | ✅ Yes | `backend/app/models.py`, `backend/app/db.py`, Neon PostgreSQL |
 | Saved events can be listed / fetched | ✅ Yes | `backend/app/api/v1/events.py` |
 | Health check ("is the app alive?") | ✅ Yes | `backend/app/api/health.py` |
-| Automated tests | ✅ 7 tests | `backend/tests/test_events.py` |
+| Automated tests | ✅ 14 tests, on a separate test database | `backend/tests/` |
 | Database version history | ✅ Yes | `backend/alembic/` |
 | Detection rules | ❌ Not yet | (a practice version existed in Lesson 7, later removed) |
 | Correlation, incidents | ❌ Not yet | |
@@ -66,7 +67,7 @@ AEGIS/
 ├── README.md                 Project landing page on GitHub
 ├── .gitignore                List of files Git must NEVER upload (passwords, .venv, caches)
 ├── pytest.ini                Tells the test tool where the code and tests live
-├── requirements-dev.txt      OLD list of test tools from Lesson 7 (now duplicated, see section 8)
+├── docker-compose.yml        Starts a throw-away PostgreSQL in Docker, used only by tests
 │
 ├── learning/                 Your Python practice scripts (Lessons 1–6). Not part of the app.
 │
@@ -76,14 +77,16 @@ AEGIS/
 │   └── development-log.md    Diary of finished milestones
 │
 └── backend/                  THE ACTUAL APPLICATION
-    ├── .env                  Secret database address. Exists on your PC only. Never on GitHub.
+    ├── .env                  Secret database addresses. Exists on your PC only. Never on GitHub.
+    ├── .env.example          Same shape as .env but with placeholders. Safe to share; on GitHub.
     ├── requirements.txt      Libraries the app needs to run
     ├── requirements-dev.txt  The above + libraries needed only for testing
     ├── alembic.ini           Settings for Alembic (database versioning tool)
     ├── alembic/
     │   ├── env.py            Tells Alembic how to connect to our database
     │   └── versions/
-    │       └── cbf2b017960c_create_events_table.py   "Version 1" of the database: create the events table
+    │       ├── cbf2b017960c_create_events_table.py            Version 1: create the events table
+    │       └── 30fd34b8e04c_drop_unused_severity_hint_...py   Version 2: remove an unused column
     ├── app/
     │   ├── main.py           The starting point. Creates the app and plugs in all the routes.
     │   ├── db.py             Opens the connection to PostgreSQL
@@ -95,7 +98,8 @@ AEGIS/
     │       └── v1/
     │           └── events.py POST and GET for /api/v1/events
     └── tests/
-        └── test_events.py    7 automatic checks
+        ├── conftest.py       Shared setup: points tests at the TEST database, never the real one
+        └── test_events.py    14 automatic checks
 ```
 
 > **Why are there empty `__init__.py` files?** They tell Python "this folder is a **package**", which means other files can `import` from it (e.g. `from app.models import Event`). Without them, newer Python can often still find things, but being explicit avoids confusing import errors.
@@ -174,13 +178,16 @@ Notice the parameter `event: EventIn`. Because of that one type hint, FastAPI us
 ```python
 class EventIn(BaseModel):
     event_type: str = Field(pattern=r"^[a-z]+(\.[a-z]+)+$")   # like "auth.login.failed"
-    occurred_at: datetime                                      # must be a real date-time
+    occurred_at: AwareDatetime                                 # a date-time WITH timezone ("Z" or "+05:30")
     source: str = Field(min_length=1, max_length=100)
     actor_id: str = Field(min_length=1, max_length=100)
     resource: Optional[str] = Field(default=None, max_length=200)
     outcome: Literal["success", "failure", "denied"]           # only these 3 words allowed
-    details: dict = Field(default_factory=dict)                # free-form extra info
+    details: dict = Field(default_factory=dict)                # free-form extra info, max 8 KB
+    event_id: Optional[UUID] = None                            # optional, lets clients retry safely
 ```
+
+(Simplified: in the real file, the shared fields live in `EventBase`, and `EventIn` adds `event_id`.)
 
 If anything is wrong (e.g. `"outcome": "banana"`), FastAPI **refuses automatically** with status `422` and a message saying which field is wrong. Our function never even runs.
 
@@ -207,12 +214,22 @@ def get_session():
 ### Step 6 — The event becomes a database row (`models.py`, SQLAlchemy)
 
 ```python
-row = Event(**event.model_dump())   # turn the checked JSON into an Event object
+if event.event_id is not None:                  # client chose its own ID?
+    existing = session.get(Event, event.event_id)
+    if existing is not None:                    # ...and we already have it: this is a retry
+        response.status_code = 200
+        return existing                         # don't save it twice
+
+row = Event(id=event.event_id or uuid4(), **event.model_dump(exclude={"event_id"}))
 session.add(row)                    # put it in the basket
 session.commit()                    # make it permanent in PostgreSQL
 session.refresh(row)                # re-read it, to get values the DATABASE filled in
 return row
 ```
+
+> **Idempotency** (pronounced "eye-dem-POH-ten-see") means "doing it twice has the same effect as doing it once".
+> *Why it matters:* the sender's Wi-Fi drops right after sending. It doesn't know if AEGIS saved the event, so it sends again. Without idempotency we would store 2 events, and 1 real failed login could look like 2.
+> *Real life:* Stripe and Razorpay payment APIs use the same idea (an "idempotency key") so a retried payment never charges you twice.
 
 `Event` (in `models.py`) describes the **table**:
 
@@ -227,7 +244,6 @@ return row
 | `resource` | text, optional | What it touched (`/login`, `/admin`) |
 | `outcome` | text | success / failure / denied |
 | `details` | JSONB | Flexible extra data (IP address, browser…) |
-| `severity_hint` | text, optional | Unused leftover (see section 8) |
 
 Plus two **indexes**:
 - `(actor_id, occurred_at)` and `(event_type, occurred_at)`.
@@ -283,13 +299,13 @@ Git remembers every version of your **code**. **Alembic** remembers every versio
 - **What if we didn't?** Someone changes a table by hand, forgets to tell anyone, and the deployed app crashes with "column does not exist".
 - **Alternatives:** writing SQL scripts by hand, Django migrations, Flyway, Liquibase.
 
-Today there is exactly one version: `cbf2b017960c — create events table`.
+Today there are two versions: `cbf2b017960c` (create the events table) and `30fd34b8e04c` (drop the unused `severity_hint` column).
 
 ---
 
 ## 7. Tests: robots that check your code (`pytest`)
 
-`backend/tests/test_events.py` contains 7 tests. Each test is a function starting with `test_` that **acts like a user** and **asserts** (insists) on the result:
+`backend/tests/test_events.py` contains 14 tests. Each test is a function starting with `test_` that **acts like a user** and **asserts** (insists) on the result:
 
 ```python
 def test_bad_outcome_is_rejected(actor):
@@ -299,37 +315,58 @@ def test_bad_outcome_is_rejected(actor):
 
 - `TestClient(app)` sends fake HTTP requests to the app **without** starting Uvicorn.
 - The `actor` **fixture** creates a unique fake account name per test and **deletes its events afterwards**, so tests clean up after themselves.
-- **Why tests?** Every time you change something, 7 checks run in seconds and tell you if you broke something that used to work. In interviews, "how did you know it worked?" → "tests".
+- **Why tests?** Every time you change something, all the checks run in seconds and tell you if you broke something that used to work. In interviews, "how did you know it worked?" → "tests".
+
+**Tests never touch the real database.** `backend/tests/conftest.py` runs before every test session. It:
+1. reads `TEST_DATABASE_URL` from `backend/.env`;
+2. **refuses to run** if it is missing or is the same as the real `DATABASE_URL`;
+3. points the whole app at the test database;
+4. runs the Alembic migrations on it, so the tests also prove the migrations work on an empty database.
+
+The test database is a throw-away PostgreSQL started by `docker compose up -d` (see [setup.md](setup.md)).
 
 | Test | What it proves |
 |---|---|
-| `test_health_live` | The app is alive |
+| `test_health_live` | The app process is alive |
+| `test_health_ready_when_database_is_up` | Ready = 200 when the database answers |
+| `test_health_ready_when_database_is_down` | Ready = 503 when it doesn't (uses a fake broken session) |
 | `test_create_event_returns_201_with_id` | A good event is saved and gets an ID |
 | `test_bad_outcome_is_rejected` | `outcome="banana"` → 422 |
 | `test_bad_event_type_is_rejected` | `"Auth Login"` → 422 |
+| `test_time_without_timezone_is_rejected` | `10:00:01` with no timezone → 422 |
+| `test_time_with_offset_is_accepted` | `15:30+05:30` is stored as the same moment as `10:00 UTC` |
+| `test_huge_details_are_rejected` | `details` over 8 KB → 422 |
+| `test_retry_with_same_event_id_is_stored_once` | Same `event_id` twice → 201, then 200, one row |
+| `test_events_without_event_id_are_all_stored` | No `event_id` → every request is a new event |
 | `test_get_event_by_id` | Saved events can be read back |
 | `test_unknown_event_is_404` | Missing IDs → 404 |
 | `test_list_respects_limit` | `limit=2` returns at most 2 |
 
-Run them from the `D:\AEGIS` folder with `.venv\Scripts\python -m pytest`. Result today: **7 passed** (about 27 seconds, because each test talks to Neon over the internet).
+Run them from the `D:\AEGIS` folder with `python -m pytest` (virtual environment active). Expected: **14 passed**.
+
+> **Faking a broken database:** `app.dependency_overrides[get_session] = ...` tells FastAPI "for this test, hand out this fake session instead of the real one". That is how we test the "database is down" path without actually breaking a database. This swap is a big benefit of dependency injection (section 4, step 5).
 
 ---
 
 ## 8. Honest health check: problems found in the current code
 
-Nothing here is a disaster, and the tests pass. But a professional reviewer would point these out, so we fix them before building on top.
+A first review (at commit `baa0d70`) found 9 problems a professional reviewer would point out. Each was fixed in its own small commit, with a test proving the fix.
 
-| # | Problem | Why it matters | Planned fix |
-|---|---|---|---|
-| 1 | **Tests write into the real database** (the same Neon DB the app uses) | A buggy cleanup could delete real data; tests are slow (internet) and fail if Wi-Fi is down | A separate **test database** (local PostgreSQL in Docker) |
-| 2 | `occurred_at` accepts times **without a timezone** (`2026-10-11T10:00:01`) | "10:00" in India and "10:00" in London are 5.5 hours apart, so time-window rules would be wrong | Require timezone (Pydantic `AwareDatetime`) |
-| 3 | `/health/ready` always says "ready", even if the database is down | Cloud platforms would send traffic to a broken app | Actually test the database connection |
-| 4 | `severity_hint` column exists but nothing uses it | Dead columns confuse readers | Remove it with a new Alembic migration (needs your OK) |
-| 5 | `details` has no size limit | Someone could send a 100 MB event and fill the database | Limit request/field size |
-| 6 | Sending the same event twice saves it twice | Network retries create duplicates, which create fake "5 failed logins" alerts | Optional client-sent event ID with a uniqueness rule |
-| 7 | Two `requirements-dev.txt` files (root and `backend/`) | Confusing: which one is real? | Keep `backend/` one; delete root one (needs your OK) |
-| 8 | Lesson 7's `rules.py` (first AUTH-001 rule) was removed in commit `84d88f0`, but `development-log.md` still describes it, and the log stops at Lesson 7 | The diary doesn't match reality | Update the log; rebuild the rule properly in the detection phase |
-| 9 | A deprecation warning from the test client | Harmless today; may break in a future library update | Revisit when upgrading libraries |
+| # | Problem | Why it mattered | What we did | Status |
+|---|---|---|---|---|
+| 1 | **Tests wrote into the real database** | A buggy cleanup could delete real data; slow; fails without Wi-Fi | `conftest.py` forces a separate `TEST_DATABASE_URL` and refuses to run without one; `docker-compose.yml` provides a throw-away test PostgreSQL | ✅ `df2b5ed` |
+| 2 | `occurred_at` accepted times **without a timezone** | "10:00" in India and in London are 5.5 h apart, so time-window rules would be wrong | `AwareDatetime`: no timezone → 422 | ✅ `0d60fb7` |
+| 3 | `/health/ready` always said "ready" | Cloud platforms would send traffic to a broken app | Runs `SELECT 1`; database down → **503**, with no internal error text leaked | ✅ `b290f97` |
+| 4 | Unused `severity_hint` column | Dead columns confuse readers | Migration `30fd34b8e04c` drops it (checked first: 0 rows, nothing lost) | ✅ `60bac95` |
+| 5 | `details` had no size limit | One client could send huge events and fill the database | `details` max 8 KB → otherwise 422 | ✅ `6156fda` |
+| 6 | The same event sent twice was saved twice | Network retries create fake "5 failed logins" alerts | Optional `event_id`: a retry returns the saved event with 200 instead of saving again | ✅ `38d34c8` |
+| 7 | Two `requirements-dev.txt` files | Which one is real? | Root one deleted; use `backend/requirements-dev.txt` | ✅ `a996a10` |
+| 8 | Development log out of date | The diary didn't match reality | Log brought up to date | ✅ `0c0a7e8` |
+| 9 | Deprecation warning from the test client | Harmless today | Revisit when upgrading libraries | ⏳ later |
+
+**Still open (known limitations):**
+- Only `details` is size-limited, not the whole request. A real deployment adds a request-size limit at the web server or load balancer.
+- The `event_id` idempotency only works if the **client** sends one. Events without it are always treated as new.
 
 ---
 
