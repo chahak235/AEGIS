@@ -2,9 +2,11 @@
 from uuid import UUID, uuid4
 
 from sqlalchemy import (
+    BigInteger,
     Column,
     DateTime,
     ForeignKey,
+    Identity,
     Index,
     Integer,
     String,
@@ -161,3 +163,35 @@ class IncidentNote(Base):
     )
 
     incident: Mapped[Incident] = relationship(back_populates="notes")
+
+
+class AuditLog(Base):
+    """A permanent record of who did what, when.
+
+    Append-only: rows are never updated, and only deleted by a deliberate
+    retention job. This is enforced INSIDE PostgreSQL by a trigger (see the
+    migration), so even a bug in the app, or someone with the app's database
+    password, cannot quietly rewrite history through normal queries.
+    """
+
+    __tablename__ = "audit_logs"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    # A counter that only goes up (1, 2, 3...), assigned by PostgreSQL. It gives
+    # the EXACT order of records. occurred_at alone can't: PostgreSQL's now() is
+    # the start time of the transaction, so several records written in one
+    # transaction share the same timestamp.
+    seq: Mapped[int] = mapped_column(BigInteger, Identity(), unique=True)
+    occurred_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    actor: Mapped[str] = mapped_column(String(100))         # username, or "system"
+    action: Mapped[str] = mapped_column(String(100))        # e.g. "incident.status_changed"
+    target_type: Mapped[str] = mapped_column(String(50))    # e.g. "incident"
+    target_id: Mapped[str] = mapped_column(String(100))     # the ID of the changed thing
+    details: Mapped[dict] = mapped_column(JSONB, default=dict)  # e.g. {"from": "open", "to": "resolved"}
+
+    __table_args__ = (
+        Index("ix_audit_target", "target_type", "target_id", "seq"),
+        Index("ix_audit_actor_seq", "actor", "seq"),
+    )
