@@ -9,6 +9,7 @@ The flow for one new event:
      handled when their own events arrived).
   4. For each match, either EXTEND an existing detection for the same rule,
      account and overlapping time, or CREATE a new one.
+  5. Put each new or grown detection into an incident (app/incidents/correlation.py).
 
 Step 4 is "deduplication": 7 failed logins in a row produce ONE detection that
 grows from 5 to 7 events, not three separate alerts. Analysts drown in
@@ -21,6 +22,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.detection.rules import LOOKAROUND, RULES, Group, Rule
+from app.incidents.correlation import correlate
 from app.models import Detection, Event
 
 
@@ -38,7 +40,17 @@ def run_detection(session: Session, event: Event) -> list[Detection]:
     for rule in RULES:
         for group in rule.find(nearby):
             if any(e.id == event.id for e in group):
-                touched.append(_create_or_extend(session, rule, group))
+                detection = _create_or_extend(session, rule, group)
+                if detection not in touched:
+                    touched.append(detection)
+
+    # Step 5: group each new or grown detection into an incident (correlation).
+    session.flush()  # send pending inserts so the correlation query can see them
+    for detection in touched:
+        correlate(session, detection)
+
+    # Everything above is ONE transaction: detections and incidents are saved
+    # together, or (if anything fails) not at all. No half-finished state.
     session.commit()
     return touched
 

@@ -51,6 +51,31 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(skip)
 
 
+def delete_everything_for(actor_id: str) -> None:
+    """Remove all rows a test created for one account, in an order the foreign keys allow."""
+    from sqlalchemy import delete
+
+    from app.db import SessionLocal
+    from app.models import Detection, Event, Incident
+
+    with SessionLocal() as session:
+        session.execute(delete(Incident).where(Incident.actor_id == actor_id))  # notes go too
+        session.execute(delete(Detection).where(Detection.actor_id == actor_id))  # links go too
+        session.execute(delete(Event).where(Event.actor_id == actor_id))
+        session.commit()
+
+
+@pytest.fixture
+def actor():
+    """A unique, made-up account name for one test. Everything created for it
+    is deleted afterwards, so tests never see each other's data."""
+    from uuid import uuid4
+
+    actor_id = f"test-{uuid4()}"
+    yield actor_id
+    delete_everything_for(actor_id)
+
+
 @pytest.fixture(scope="session", autouse=True)
 def migrated_test_database():
     """Bring the test database up to the latest schema once, before all tests.

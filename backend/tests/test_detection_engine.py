@@ -20,16 +20,6 @@ client = TestClient(app)
 T0 = datetime(2026, 10, 11, 10, 0, 0, tzinfo=timezone.utc)
 
 
-@pytest.fixture
-def actor():
-    """A unique account per test. Cleanup deletes detections first, then events
-    (events that are evidence cannot be deleted while a detection uses them)."""
-    actor_id = f"test-{uuid4()}"
-    yield actor_id
-    with SessionLocal() as session:
-        session.execute(delete(Detection).where(Detection.actor_id == actor_id))
-        session.execute(delete(Event).where(Event.actor_id == actor_id))
-        session.commit()
 
 
 def send(actor_id, event_type="auth.login.failed", at=T0, outcome="failure", **extra):

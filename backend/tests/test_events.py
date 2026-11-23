@@ -1,9 +1,9 @@
-﻿from datetime import datetime, timezone
+from datetime import datetime, timezone
 from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import delete, func, select
+from sqlalchemy import func, select
 from sqlalchemy.exc import OperationalError
 
 from app.db import SessionLocal
@@ -17,14 +17,6 @@ pytestmark = pytest.mark.db
 client = TestClient(app)
 
 
-@pytest.fixture
-def actor():
-    """A unique actor per test, and cleanup of its events afterwards."""
-    actor_id = f"test-{uuid4()}"
-    yield actor_id
-    with SessionLocal() as session:
-        session.execute(delete(Event).where(Event.actor_id == actor_id))
-        session.commit()
 
 
 def make_event(actor_id, **overrides):

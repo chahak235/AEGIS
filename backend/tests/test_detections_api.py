@@ -1,37 +1,29 @@
 """Tests for reading detections through the API."""
 
 from datetime import datetime, timedelta, timezone
-from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import delete
 
-from app.db import SessionLocal
 from app.main import app
-from app.models import Detection, Event
 
 client = TestClient(app)
 T0 = datetime(2026, 10, 11, 10, 0, 0, tzinfo=timezone.utc)
 
 
 @pytest.fixture
-def actor_with_detection():
-    """An account with 5 failed logins, so it has exactly one AUTH-001 detection."""
-    actor_id = f"test-{uuid4()}"
+def actor_with_detection(actor):
+    """An account with 5 failed logins, so it has exactly one AUTH-001 detection.
+    (The shared `actor` fixture in conftest.py deletes everything afterwards.)"""
     for i in range(5):
         client.post("/api/v1/events", json={
             "event_type": "auth.login.failed",
             "occurred_at": (T0 + timedelta(seconds=i)).isoformat(),
             "source": "test",
-            "actor_id": actor_id,
+            "actor_id": actor,
             "outcome": "failure",
         })
-    yield actor_id
-    with SessionLocal() as session:
-        session.execute(delete(Detection).where(Detection.actor_id == actor_id))
-        session.execute(delete(Event).where(Event.actor_id == actor_id))
-        session.commit()
+    return actor
 
 
 @pytest.mark.db
