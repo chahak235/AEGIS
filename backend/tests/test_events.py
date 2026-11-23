@@ -100,6 +100,12 @@ def test_time_with_offset_is_accepted(actor):
     assert saved == datetime(2026, 10, 11, 10, 0, 1, tzinfo=timezone.utc)
 
 
+def test_huge_details_are_rejected(actor):
+    huge = {"junk": "x" * 10_000}  # about 10 KB, over the 8 KB limit
+    response = client.post("/api/v1/events", json=make_event(actor, details=huge))
+    assert response.status_code == 422
+
+
 def test_get_event_by_id(actor):
     created = client.post("/api/v1/events", json=make_event(actor)).json()
     response = client.get(f"/api/v1/events/{created['id']}")

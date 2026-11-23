@@ -1,8 +1,12 @@
-﻿from datetime import datetime
+﻿import json
+from datetime import datetime
 from typing import Literal, Optional
 from uuid import UUID
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator
+
+# 8 KB is plenty for an IP address, browser name and a few extra fields.
+MAX_DETAILS_BYTES = 8 * 1024
 
 
 class EventIn(BaseModel):
@@ -20,6 +24,15 @@ class EventIn(BaseModel):
     resource: Optional[str] = Field(default=None, max_length=200)
     outcome: Literal["success", "failure", "denied"]
     details: dict = Field(default_factory=dict)
+
+    @field_validator("details")
+    @classmethod
+    def details_not_too_big(cls, value: dict) -> dict:
+        # Without a limit, one client could send megabytes per event and fill the database.
+        size = len(json.dumps(value).encode("utf-8"))
+        if size > MAX_DETAILS_BYTES:
+            raise ValueError(f"details is {size} bytes; the limit is {MAX_DETAILS_BYTES}")
+        return value
 
 
 class EventOut(EventIn):
