@@ -1,4 +1,5 @@
-﻿from uuid import UUID, uuid4
+﻿import logging
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import select
@@ -6,8 +7,11 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.deps import get_session
+from app.detection import engine as detection_engine
 from app.models import Event
 from app.schemas import EventIn, EventOut
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/events", tags=["events"])
 
@@ -39,6 +43,15 @@ def create_event(
         response.status_code = 200
         return session.get(Event, row.id)
     session.refresh(row)  # reload so ingested_at (set by the database) is filled in
+
+    # The event is now safely stored. Detection runs AFTER that, separately:
+    # if a rule has a bug, we log it, but we never lose the event itself.
+    # (A retried event returns early above, so its rules do not run twice.)
+    try:
+        detection_engine.run_detection(session, row)
+    except Exception:
+        session.rollback()
+        logger.exception("Detection failed for event %s; the event itself is saved", row.id)
     return row
 
 
