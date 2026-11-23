@@ -4,8 +4,10 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import delete
+from sqlalchemy.exc import OperationalError
 
 from app.db import SessionLocal
+from app.deps import get_session
 from app.main import app
 from app.models import Event
 
@@ -40,6 +42,27 @@ def test_health_live():
     response = client.get("/health/live")
     assert response.status_code == 200
     assert response.json() == {"status": "alive"}
+
+
+def test_health_ready_when_database_is_up():
+    response = client.get("/health/ready")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ready", "database": "ok"}
+
+
+def test_health_ready_when_database_is_down():
+    class BrokenSession:
+        def execute(self, *args, **kwargs):
+            raise OperationalError("SELECT 1", {}, Exception("connection refused"))
+
+    # Swap the real database session for a broken one, only for this test.
+    app.dependency_overrides[get_session] = lambda: BrokenSession()
+    try:
+        response = client.get("/health/ready")
+    finally:
+        app.dependency_overrides.clear()
+    assert response.status_code == 503
+    assert response.json()["status"] == "not ready"
 
 
 def test_create_event_returns_201_with_id(actor):
