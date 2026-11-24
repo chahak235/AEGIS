@@ -104,6 +104,15 @@ def actor():
     delete_everything_for(actor_id)
 
 
+@pytest.fixture(autouse=True)
+def fresh_rate_limits():
+    """Every test starts with empty rate-limit counters (all tests share one fake IP)."""
+    from app.ratelimit import limiter
+
+    limiter.reset()
+    yield
+
+
 @pytest.fixture(scope="session", autouse=True)
 def migrated_test_database():
     """Bring the test database up to the latest schema once, before all tests.

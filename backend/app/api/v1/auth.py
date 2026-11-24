@@ -5,7 +5,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import audit, config
+from app import audit, config, ratelimit
 from app.deps import get_current_user, get_session
 from app.ingest import ingest_event
 from app.models import User
@@ -49,6 +49,13 @@ def login(
     request you try afterwards is sent with the token automatically.
     """
     username = form.username.strip().lower()
+
+    # Rate limits are checked BEFORE the password, so a blocked attacker learns nothing.
+    # Per IP: one machine guessing many accounts. Per username: many machines guessing one account.
+    client_ip = request.client.host if request.client else "unknown"
+    ratelimit.enforce(f"login:ip:{client_ip}", ratelimit.LOGIN_PER_IP, "login_ip")
+    ratelimit.enforce(f"login:user:{username}", ratelimit.LOGIN_PER_USERNAME, "login_username")
+
     user = session.scalars(select(User).where(User.username == username)).first()
 
     # verify_password runs even for unknown users (against a dummy hash) so the

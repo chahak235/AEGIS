@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app import ratelimit
 from app.deps import any_user, get_event_sender, get_session
 from app.ingest import ingest_event
 from app.models import Event
@@ -29,6 +30,7 @@ def create_event(
     with 200 instead of saving a duplicate. Duplicates would make
     "5 failed logins" rules fire on what was really 1 failed login sent 5 times.
     """
+    ratelimit.enforce(f"events:{sender}", ratelimit.EVENTS_PER_SENDER, "events")
     row, created = ingest_event(session, event)
     if not created:
         response.status_code = 200
