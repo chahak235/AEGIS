@@ -3,6 +3,7 @@ from uuid import UUID, uuid4
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     Column,
     DateTime,
     ForeignKey,
@@ -195,3 +196,42 @@ class AuditLog(Base):
         Index("ix_audit_target", "target_type", "target_id", "seq"),
         Index("ix_audit_actor_seq", "actor", "seq"),
     )
+
+
+class User(Base):
+    """A person who logs in to AEGIS (an analyst or an admin)."""
+
+    __tablename__ = "users"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    username: Mapped[str] = mapped_column(String(50), unique=True)
+    # NEVER the password itself: an Argon2 hash. Even with a copy of the
+    # database, nobody can read passwords back out of it.
+    password_hash: Mapped[str] = mapped_column(String(255))
+    role: Mapped[str] = mapped_column(String(20))           # "analyst" | "admin"
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class ApiKey(Base):
+    """A key a SYSTEM (not a person) uses to send events to AEGIS.
+
+    We store only a SHA-256 hash of the key. The full key is shown once, when
+    it is created. `prefix` (first characters) lets humans tell keys apart.
+    """
+
+    __tablename__ = "api_keys"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    name: Mapped[str] = mapped_column(String(100))          # e.g. "web-app production"
+    prefix: Mapped[str] = mapped_column(String(20))
+    key_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_by: Mapped[str] = mapped_column(String(50))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
