@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.detection import engine as detection_engine
 from app.models import Event
+from app.observability import EVENTS_INGESTED
 from app.schemas import EventIn
 
 logger = logging.getLogger(__name__)
@@ -29,6 +30,7 @@ def ingest_event(session: Session, event: EventIn) -> tuple[Event, bool]:
     if event.event_id is not None:
         existing = session.get(Event, event.event_id)
         if existing is not None:
+            EVENTS_INGESTED.labels("false").inc()
             return existing, False
 
     row = Event(id=event.event_id or uuid4(), **event.model_dump(exclude={"event_id"}))
@@ -39,6 +41,7 @@ def ingest_event(session: Session, event: EventIn) -> tuple[Event, bool]:
         # Two identical retries arrived at the same moment; the other one won.
         session.rollback()
         return session.get(Event, row.id), False
+    EVENTS_INGESTED.labels("true").inc()
     session.refresh(row)  # reload so ingested_at (set by the database) is filled in
 
     # The event is now safely stored. Detection runs AFTER that, separately:

@@ -8,3 +8,6 @@ alembic
 argon2-cffi        # password hashing (Argon2id, recommended by OWASP)
 PyJWT              # creating and checking login tokens (JWT)
 python-multipart   # reading the login form (username + password)
+# Operations
+redis              # shared rate-limit counters (optional: only used when REDIS_URL is set)
+prometheus-client  # /metrics for Prometheus

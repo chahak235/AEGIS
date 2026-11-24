@@ -24,6 +24,7 @@ from sqlalchemy.orm import Session
 from app.detection.rules import LOOKAROUND, RULES, Group, Rule
 from app.incidents.correlation import correlate
 from app.models import Detection, Event
+from app.observability import DETECTIONS
 
 
 def run_detection(session: Session, event: Event) -> list[Detection]:
@@ -72,6 +73,7 @@ def _create_or_extend(session: Session, rule: Rule, group: Group) -> Detection:
     ).first()
 
     if existing is None:
+        DETECTIONS.labels(rule.code, "created").inc()
         detection = Detection(
             rule_code=rule.code,
             severity=rule.severity,
@@ -86,6 +88,7 @@ def _create_or_extend(session: Session, rule: Rule, group: Group) -> Detection:
         return detection
 
     # Extend: add the new evidence, widen the time range, rewrite the explanation.
+    DETECTIONS.labels(rule.code, "extended").inc()
     evidence = {e.id: e for e in existing.events}
     for e in group:
         evidence.setdefault(e.id, e)

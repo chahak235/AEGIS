@@ -34,6 +34,7 @@ from app.incidents.lifecycle import (
     incident_title,
 )
 from app.models import Detection, Incident
+from app.observability import INCIDENTS_CREATED
 
 RULE_NAMES = {rule.code: rule.name for rule in RULES}
 
@@ -76,6 +77,7 @@ def correlate(session: Session, detection: Detection) -> Incident:
 
     # Automatic actions are audited too, with actor "system".
     if created:
+        INCIDENTS_CREATED.labels(incident.severity).inc()
         audit.record(session, actor=audit.SYSTEM, action="incident.created",
                      target_type="incident", target_id=incident.id,
                      details={"rule_code": detection.rule_code, "severity": incident.severity})
