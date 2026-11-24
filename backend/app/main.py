@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app import observability
 from app.api import health
-from app.api.v1 import audit, auth, detections, events, incidents, users
+from app.api.v1 import audit, auth, detections, events, incidents, stats, users
 
 observability.configure_logging(os.environ.get("LOG_LEVEL", "INFO"))
 
@@ -39,6 +39,7 @@ app.include_router(events.router)
 app.include_router(detections.router)
 app.include_router(detections.rules_router)
 app.include_router(incidents.router)
+app.include_router(stats.router)
 app.include_router(audit.router)
 app.include_router(users.router)
 app.include_router(users.keys_router)
