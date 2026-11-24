@@ -21,7 +21,8 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.detection.rules import LOOKAROUND, RULES, Group, Rule
+from app.detection.catalogue import ALL_RULES, LOOKAROUND
+from app.detection.rules import Group, Rule
 from app.incidents.correlation import correlate
 from app.models import Detection, Event
 from app.observability import DETECTIONS
@@ -38,7 +39,7 @@ def run_detection(session: Session, event: Event) -> list[Detection]:
     ).all()
 
     touched: list[Detection] = []
-    for rule in RULES:
+    for rule in ALL_RULES:
         for group in rule.find(nearby):
             if any(e.id == event.id for e in group):
                 detection = _create_or_extend(session, rule, group)
@@ -83,6 +84,9 @@ def _create_or_extend(session: Session, rule: Rule, group: Group) -> Detection:
             event_count=len(group),
             explanation=rule.explain(group),
             events=list(group),
+            source_type=rule.source_type,
+            model_version=rule.model_version,
+            anomaly_score=rule.score(group) if rule.score else None,
         )
         session.add(detection)
         return detection
@@ -98,4 +102,6 @@ def _create_or_extend(session: Session, rule: Rule, group: Group) -> Detection:
     existing.window_end = ordered[-1].occurred_at
     existing.event_count = len(ordered)
     existing.explanation = rule.explain(ordered)
+    if rule.score:
+        existing.anomaly_score = rule.score(ordered)
     return existing

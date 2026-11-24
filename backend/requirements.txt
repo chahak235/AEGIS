@@ -11,3 +11,7 @@ python-multipart   # reading the login form (username + password)
 # Operations
 redis              # shared rate-limit counters (optional: only used when REDIS_URL is set)
 prometheus-client  # /metrics for Prometheus
+# Machine learning (ML-001 anomaly detector)
+scikit-learn       # Isolation Forest
+numpy
+joblib             # loads the saved model file

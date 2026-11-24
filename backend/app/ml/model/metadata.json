@@ -1,0 +1,155 @@
+{
+  "model_name": "isolation_forest",
+  "model_version": "iforest-v1",
+  "feature_names": [
+    "event_count",
+    "failed_logins",
+    "successful_logins",
+    "denied",
+    "api_requests",
+    "distinct_event_types",
+    "distinct_resources",
+    "failure_ratio"
+  ],
+  "feature_schema_version": 1,
+  "threshold": -0.720670585073903,
+  "z_threshold": 15.154298182674346,
+  "threshold_method": "each check gets half of a 1% false-alarm budget, measured on normal validation windows",
+  "train_mean": [
+    14.168117,
+    0.101101,
+    0.224427,
+    0.029056,
+    13.827703,
+    1.299191,
+    3.728505,
+    0.014395
+  ],
+  "train_std": [
+    13.641534,
+    0.371183,
+    0.447543,
+    0.167963,
+    13.592578,
+    0.567593,
+    2.125698,
+    0.065038
+  ],
+  "params": {
+    "n_estimators": 200,
+    "max_samples": 256,
+    "random_state": 42
+  },
+  "training_rows": 29426,
+  "dataset": {
+    "generator": "ml/synthetic.py",
+    "seed": 42,
+    "normal": {
+      "train": 6000,
+      "val": 1500,
+      "test": 1500
+    },
+    "attacks_per_kind": {
+      "val": 75,
+      "test": 75
+    },
+    "attack_kinds": [
+      "brute_force",
+      "stuffing_success",
+      "scraping",
+      "privilege_probing",
+      "low_and_slow"
+    ]
+  },
+  "test_results": {
+    "rules": {
+      "tp": 146,
+      "fp": 59,
+      "fn": 229,
+      "tn": 1441,
+      "precision": 0.712,
+      "recall": 0.389,
+      "f1": 0.503,
+      "false_positive_rate": 0.0393
+    },
+    "iforest": {
+      "tp": 75,
+      "fp": 14,
+      "fn": 300,
+      "tn": 1486,
+      "precision": 0.843,
+      "recall": 0.2,
+      "f1": 0.323,
+      "false_positive_rate": 0.0093
+    },
+    "extreme_value": {
+      "tp": 314,
+      "fp": 0,
+      "fn": 61,
+      "tn": 1500,
+      "precision": 1.0,
+      "recall": 0.837,
+      "f1": 0.911,
+      "false_positive_rate": 0.0
+    },
+    "ml": {
+      "tp": 340,
+      "fp": 14,
+      "fn": 35,
+      "tn": 1486,
+      "precision": 0.96,
+      "recall": 0.907,
+      "f1": 0.933,
+      "false_positive_rate": 0.0093
+    },
+    "rules_or_ml": {
+      "tp": 354,
+      "fp": 73,
+      "fn": 21,
+      "tn": 1427,
+      "precision": 0.829,
+      "recall": 0.944,
+      "f1": 0.883,
+      "false_positive_rate": 0.0487
+    },
+    "recall_by_attack": {
+      "rules": {
+        "brute_force": 1.0,
+        "stuffing_success": 0.64,
+        "scraping": 0.0,
+        "privilege_probing": 0.307,
+        "low_and_slow": 0.0
+      },
+      "iforest": {
+        "brute_force": 0.0,
+        "stuffing_success": 0.0,
+        "scraping": 0.0,
+        "privilege_probing": 0.0,
+        "low_and_slow": 1.0
+      },
+      "extreme_value": {
+        "brute_force": 1.0,
+        "stuffing_success": 0.533,
+        "scraping": 1.0,
+        "privilege_probing": 1.0,
+        "low_and_slow": 0.653
+      },
+      "ml": {
+        "brute_force": 1.0,
+        "stuffing_success": 0.533,
+        "scraping": 1.0,
+        "privilege_probing": 1.0,
+        "low_and_slow": 1.0
+      },
+      "rules_or_ml": {
+        "brute_force": 1.0,
+        "stuffing_success": 0.72,
+        "scraping": 1.0,
+        "privilege_probing": 1.0,
+        "low_and_slow": 1.0
+      }
+    }
+  },
+  "sklearn_version": "1.9.1",
+  "trained_on": "2026-11-24"
+}

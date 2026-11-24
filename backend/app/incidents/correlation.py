@@ -26,7 +26,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import audit
-from app.detection.rules import RULES
+from app.detection.catalogue import ALL_RULES
 from app.incidents.lifecycle import (
     ACTIVE_STATUSES,
     CORRELATION_WINDOW,
@@ -36,7 +36,7 @@ from app.incidents.lifecycle import (
 from app.models import Detection, Incident
 from app.observability import INCIDENTS_CREATED
 
-RULE_NAMES = {rule.code: rule.name for rule in RULES}
+RULE_NAMES = {rule.code: rule.name for rule in ALL_RULES}
 
 
 def correlate(session: Session, detection: Detection) -> Incident:

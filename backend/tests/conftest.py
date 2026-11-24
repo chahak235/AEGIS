@@ -105,6 +105,20 @@ def actor():
 
 
 @pytest.fixture(autouse=True)
+def rules_only_unless_marked_ml(request, monkeypatch):
+    """Most tests check exact rule behaviour, so the ML detector is switched off
+    for them. Tests marked `@pytest.mark.ml` run with ML switched on."""
+    if "ml" in request.keywords:
+        yield
+        return
+    from app.detection import engine
+    from app.detection.rules import RULES
+
+    monkeypatch.setattr(engine, "ALL_RULES", RULES)
+    yield
+
+
+@pytest.fixture(autouse=True)
 def fresh_rate_limits():
     """Every test starts with empty rate-limit counters (all tests share one fake IP)."""
     from app.ratelimit import limiter

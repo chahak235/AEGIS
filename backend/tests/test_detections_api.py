@@ -68,6 +68,7 @@ def test_bad_severity_filter_is_rejected():
 def test_rule_catalogue_lists_every_rule():
     # Logging in checks the user in the database, so this needs the test database.
     rules = client.get("/api/v1/rules").json()
-    assert [r["code"] for r in rules] == ["AUTH-001", "AUTH-002", "ACCESS-001", "ACCOUNT-001", "API-001"]
+    assert [r["code"] for r in rules] == ["AUTH-001", "AUTH-002", "ACCESS-001", "ACCOUNT-001", "API-001", "ML-001"]
+    assert rules[-1]["source_type"] == "ml" and rules[-1]["model_version"] == "iforest-v1"
     auth001 = rules[0]
     assert auth001["threshold"] == 5 and auth001["window_seconds"] == 300
