@@ -51,6 +51,10 @@ class Rule:
     threshold: int
     find: Callable[[Sequence[EventLike]], list[Group]]   # events -> matching groups
     explain: Callable[[Group], str]                      # group  -> human sentence
+    # Provenance. Hand-written rules keep the defaults; the ML rule fills them in.
+    source_type: str = "rule"                            # "rule" | "ml"
+    model_version: str | None = None
+    score: Callable[[Group], float] | None = None        # group -> anomaly score (ML only)
 
 
 # ---------------------------------------------------------------------------

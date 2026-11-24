@@ -65,6 +65,9 @@ class DetectionOut(BaseModel):
     window_end: datetime
     event_count: int
     explanation: str
+    source_type: str                 # "rule" or "ml"
+    model_version: Optional[str]     # set for ML detections
+    anomaly_score: Optional[float]   # set for ML detections (lower = more unusual)
     created_at: datetime
     updated_at: datetime
 
@@ -84,6 +87,8 @@ class RuleOut(BaseModel):
     severity: str
     window_seconds: int
     threshold: int
+    source_type: str = "rule"
+    model_version: Optional[str] = None
 
 
 

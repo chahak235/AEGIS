@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.deps import any_user, get_session
-from app.detection.rules import RULES
+from app.detection.catalogue import ALL_RULES
 from app.models import Detection
 from app.schemas import DetectionDetailOut, DetectionOut, RuleOut
 
@@ -19,6 +19,7 @@ def list_detections(
     rule_code: Optional[str] = None,
     actor_id: Optional[str] = None,
     severity: Optional[Literal["low", "medium", "high"]] = None,
+    source_type: Optional[Literal["rule", "ml"]] = None,
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     session: Session = Depends(get_session),
@@ -31,6 +32,8 @@ def list_detections(
         stmt = stmt.where(Detection.actor_id == actor_id)
     if severity:
         stmt = stmt.where(Detection.severity == severity)
+    if source_type:
+        stmt = stmt.where(Detection.source_type == source_type)
     stmt = stmt.order_by(Detection.window_end.desc(), Detection.id).limit(limit).offset(offset)
     return session.scalars(stmt).all()
 
@@ -61,6 +64,8 @@ def list_rules():
             severity=r.severity,
             window_seconds=int(r.window.total_seconds()),
             threshold=r.threshold,
+            source_type=r.source_type,
+            model_version=r.model_version,
         )
-        for r in RULES
+        for r in ALL_RULES
     ]

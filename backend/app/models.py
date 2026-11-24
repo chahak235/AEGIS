@@ -6,6 +6,7 @@ from sqlalchemy import (
     Boolean,
     Column,
     DateTime,
+    Float,
     ForeignKey,
     Identity,
     Index,
@@ -85,6 +86,12 @@ class Detection(Base):
     events: Mapped[list[Event]] = relationship(
         secondary=detection_events, order_by=Event.occurred_at
     )
+
+    # Provenance: WHERE the finding came from. A rule is exact and explainable;
+    # a model is statistical. Analysts must be able to tell them apart.
+    source_type: Mapped[str] = mapped_column(String(10), server_default="rule")  # "rule" | "ml"
+    model_version: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    anomaly_score: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     # Which incident (investigation) this detection belongs to. Each detection
     # is in at most one incident; one incident groups many detections.
