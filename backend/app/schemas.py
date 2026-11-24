@@ -163,3 +163,61 @@ class AuditOut(BaseModel):
     target_type: str
     target_id: str
     details: dict
+
+
+# --- Users, login and API keys ----------------------------------------------
+
+Role = Literal["analyst", "admin"]
+# Lowercase letters, digits, dot, dash, underscore; 3-50 characters.
+USERNAME_PATTERN = r"^[a-z0-9._-]{3,50}$"
+
+
+class TokenOut(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    expires_in: int  # seconds
+
+
+class UserOut(BaseModel):
+    """A user as others may see it. Note: no password hash, ever."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    username: str
+    role: str
+    is_active: bool
+    created_at: datetime
+    last_login_at: Optional[datetime]
+
+
+class UserCreate(BaseModel):
+    username: str = Field(pattern=USERNAME_PATTERN, examples=["alice"])
+    password: str = Field(min_length=12, max_length=128)
+    role: Role = "analyst"
+
+
+class UserUpdate(BaseModel):
+    role: Optional[Role] = None
+    is_active: Optional[bool] = None
+    password: Optional[str] = Field(default=None, min_length=12, max_length=128)
+
+
+class ApiKeyCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=100, examples=["web-app production"])
+
+
+class ApiKeyOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    name: str
+    prefix: str
+    is_active: bool
+    created_by: str
+    created_at: datetime
+    last_used_at: Optional[datetime]
+
+
+class ApiKeyCreatedOut(ApiKeyOut):
+    key: str  # shown ONCE, right after creation. AEGIS cannot show it again.
