@@ -7,9 +7,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app import audit
-from app.deps import current_username, get_session
+from app.deps import any_user, get_session
 from app.incidents.lifecycle import InvalidTransition, check_transition
-from app.models import AuditLog, Detection, Incident, IncidentNote
+from app.models import AuditLog, Detection, Incident, IncidentNote, User
 from app.schemas import (
     AuditOut,
     IncidentDetailOut,
@@ -21,7 +21,7 @@ from app.schemas import (
     Severity,
 )
 
-router = APIRouter(prefix="/api/v1/incidents", tags=["incidents"])
+router = APIRouter(prefix="/api/v1/incidents", tags=["incidents"], dependencies=[Depends(any_user)])
 
 
 def _load_incident(session: Session, incident_id: UUID) -> Incident:
@@ -87,7 +87,7 @@ def update_incident(
     incident_id: UUID,
     changes: IncidentUpdate,
     session: Session = Depends(get_session),
-    username: str = Depends(current_username),
+    user: User = Depends(any_user),
 ):
     """Change status, assignee or resolution. Only the fields you send are changed."""
     incident = _load_incident(session, incident_id)
@@ -95,6 +95,13 @@ def update_incident(
 
     if "resolution" in sent and changes.status != "resolved":
         raise HTTPException(422, "A resolution can only be set together with status 'resolved'.")
+
+    if "assigned_to" in sent and changes.assigned_to is not None:
+        assignee = session.scalars(
+            select(User).where(User.username == changes.assigned_to, User.is_active)
+        ).first()
+        if assignee is None:
+            raise HTTPException(422, f"No active user named '{changes.assigned_to}'.")
 
     if changes.status is not None and changes.status != incident.status:
         try:
@@ -118,11 +125,11 @@ def update_incident(
             incident.resolution_note = None
             incident.resolved_at = None
         incident.status = changes.status
-        audit.record(session, actor=username, action="incident.status_changed",
+        audit.record(session, actor=user.username, action="incident.status_changed",
                      target_type="incident", target_id=incident.id, details=details)
 
     if "assigned_to" in sent and changes.assigned_to != incident.assigned_to:
-        audit.record(session, actor=username, action="incident.assigned",
+        audit.record(session, actor=user.username, action="incident.assigned",
                      target_type="incident", target_id=incident.id,
                      details={"from": incident.assigned_to, "to": changes.assigned_to})
         incident.assigned_to = changes.assigned_to  # null = unassign
@@ -136,7 +143,7 @@ def add_note(
     incident_id: UUID,
     note: NoteIn,
     session: Session = Depends(get_session),
-    username: str = Depends(current_username),
+    user: User = Depends(any_user),
 ):
     """Add an investigation note. Notes cannot be edited or deleted afterwards."""
     incident = session.get(Incident, incident_id)
@@ -144,9 +151,9 @@ def add_note(
         raise HTTPException(status_code=404, detail="Incident not found")
     if incident.status == "closed":
         raise HTTPException(status_code=409, detail="Incident is closed; no more notes.")
-    row = IncidentNote(id=uuid4(), incident_id=incident.id, author=username, body=note.body)
+    row = IncidentNote(id=uuid4(), incident_id=incident.id, author=user.username, body=note.body)
     session.add(row)
-    audit.record(session, actor=username, action="incident.note_added",
+    audit.record(session, actor=user.username, action="incident.note_added",
                  target_type="incident", target_id=incident.id, details={"note_id": str(row.id)})
     session.commit()
     session.refresh(row)

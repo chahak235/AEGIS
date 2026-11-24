@@ -5,13 +5,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from app.deps import get_session
+from app.deps import any_user, get_session
 from app.detection.rules import RULES
 from app.models import Detection
 from app.schemas import DetectionDetailOut, DetectionOut, RuleOut
 
-router = APIRouter(prefix="/api/v1/detections", tags=["detections"])
-rules_router = APIRouter(prefix="/api/v1/rules", tags=["detections"])
+router = APIRouter(prefix="/api/v1/detections", tags=["detections"], dependencies=[Depends(any_user)])
+rules_router = APIRouter(prefix="/api/v1/rules", tags=["detections"], dependencies=[Depends(any_user)])
 
 
 @router.get("", response_model=list[DetectionOut])

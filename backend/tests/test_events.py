@@ -9,12 +9,14 @@ from sqlalchemy.exc import OperationalError
 from app.db import SessionLocal
 from app.deps import get_session
 from app.main import app
+from conftest import auth_headers
 from app.models import Event
 
 # Every test in this file talks to the database (see conftest.py).
 pytestmark = pytest.mark.db
 
-client = TestClient(app)
+# Logged in as the test analyst (see conftest.py).
+client = TestClient(app, headers=auth_headers("analyst"))
 
 
 

@@ -9,14 +9,16 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import delete, select
 
-from app.api.v1 import events as events_module
+from app import ingest
 from app.db import SessionLocal
 from app.main import app
+from conftest import auth_headers
 from app.models import Detection, Event
 
 pytestmark = pytest.mark.db
 
-client = TestClient(app)
+# Logged in as the test analyst (see conftest.py).
+client = TestClient(app, headers=auth_headers("analyst"))
 T0 = datetime(2026, 10, 11, 10, 0, 0, tzinfo=timezone.utc)
 
 
@@ -118,6 +120,6 @@ def test_event_is_saved_even_if_detection_crashes(actor, monkeypatch):
     def broken(session, event):
         raise RuntimeError("bug in a rule")
 
-    monkeypatch.setattr(events_module.detection_engine, "run_detection", broken)
+    monkeypatch.setattr(ingest.detection_engine, "run_detection", broken)
     created = send(actor)
     assert client.get(f"/api/v1/events/{created['id']}").status_code == 200

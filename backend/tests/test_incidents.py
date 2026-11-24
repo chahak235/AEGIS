@@ -6,10 +6,12 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+from conftest import auth_headers
 
 pytestmark = pytest.mark.db
 
-client = TestClient(app)
+# Logged in as the test analyst (see conftest.py).
+client = TestClient(app, headers=auth_headers("analyst"))
 T0 = datetime(2026, 10, 11, 10, 0, 0, tzinfo=timezone.utc)
 
 
@@ -100,9 +102,9 @@ def test_status_flow_and_assignment(actor):
     incident_id = incidents_for(actor)[0]["id"]
     url = f"/api/v1/incidents/{incident_id}"
 
-    r = client.patch(url, json={"status": "acknowledged", "assigned_to": "analyst-1"})
+    r = client.patch(url, json={"status": "acknowledged", "assigned_to": "test-analyst"})
     assert r.status_code == 200
-    assert r.json()["status"] == "acknowledged" and r.json()["assigned_to"] == "analyst-1"
+    assert r.json()["status"] == "acknowledged" and r.json()["assigned_to"] == "test-analyst"
 
     r = client.patch(url, json={"status": "resolved", "resolution": "true_positive",
                                 "resolution_note": "Password reset, attacker IP blocked."})
@@ -145,7 +147,7 @@ def test_reopen_clears_the_old_conclusion(actor):
 def test_unassign_with_null(actor):
     five_failures(actor)
     url = f"/api/v1/incidents/{incidents_for(actor)[0]['id']}"
-    client.patch(url, json={"assigned_to": "analyst-1"})
+    client.patch(url, json={"assigned_to": "test-analyst"})
     assert client.patch(url, json={"assigned_to": None}).json()["assigned_to"] is None
 
 

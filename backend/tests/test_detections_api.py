@@ -6,8 +6,10 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+from conftest import auth_headers
 
-client = TestClient(app)
+# Logged in as the test analyst (see conftest.py).
+client = TestClient(app, headers=auth_headers("analyst"))
 T0 = datetime(2026, 10, 11, 10, 0, 0, tzinfo=timezone.utc)
 
 
@@ -62,8 +64,9 @@ def test_bad_severity_filter_is_rejected():
     assert client.get("/api/v1/detections?severity=extreme").status_code == 422
 
 
+@pytest.mark.db
 def test_rule_catalogue_lists_every_rule():
-    # No database needed: the catalogue comes straight from the code.
+    # Logging in checks the user in the database, so this needs the test database.
     rules = client.get("/api/v1/rules").json()
     assert [r["code"] for r in rules] == ["AUTH-001", "AUTH-002", "ACCESS-001", "ACCOUNT-001", "API-001"]
     auth001 = rules[0]

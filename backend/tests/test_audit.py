@@ -9,11 +9,13 @@ from sqlalchemy.exc import DBAPIError
 
 from app.db import SessionLocal
 from app.main import app
+from conftest import auth_headers
 from app.models import AuditLog
 
 pytestmark = pytest.mark.db
 
-client = TestClient(app)
+# Logged in as the test analyst (see conftest.py).
+client = TestClient(app, headers=auth_headers("analyst"))
 T0 = datetime(2026, 10, 11, 10, 0, 0, tzinfo=timezone.utc)
 
 
@@ -43,7 +45,7 @@ def test_incident_creation_is_audited_as_system(actor):
 def test_analyst_actions_are_audited_in_order(actor):
     incident_id = incident_for(actor)
     url = f"/api/v1/incidents/{incident_id}"
-    client.patch(url, json={"status": "acknowledged", "assigned_to": "analyst-1"})
+    client.patch(url, json={"status": "acknowledged", "assigned_to": "test-analyst"})
     client.post(f"{url}/notes", json={"body": "Looking into it."})
     client.patch(url, json={"status": "resolved", "resolution": "benign"})
 
@@ -70,8 +72,8 @@ def test_reopen_keeps_the_old_conclusion_in_the_audit_log(actor):
 def test_no_change_means_no_audit_record(actor):
     incident_id = incident_for(actor)
     url = f"/api/v1/incidents/{incident_id}"
-    client.patch(url, json={"assigned_to": "a"})
-    client.patch(url, json={"assigned_to": "a"})  # same value again
+    client.patch(url, json={"assigned_to": "test-admin"})
+    client.patch(url, json={"assigned_to": "test-admin"})  # same value again
     assert [e["action"] for e in history(incident_id)].count("incident.assigned") == 1
 
 
@@ -83,7 +85,8 @@ def test_rejected_change_leaves_no_audit_record(actor):
 
 def test_audit_search_by_target(actor):
     incident_id = incident_for(actor)
-    rows = client.get(f"/api/v1/audit?target_type=incident&target_id={incident_id}").json()
+    admin = TestClient(app, headers=auth_headers("admin"))
+    rows = admin.get(f"/api/v1/audit?target_type=incident&target_id={incident_id}").json()
     assert len(rows) == 1
 
 

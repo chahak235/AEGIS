@@ -35,6 +35,26 @@ if TEST_DATABASE_URL and TEST_DATABASE_URL == os.environ.get("DATABASE_URL"):
 # the app still works (unit tests need that), but nothing can touch real data.
 os.environ["DATABASE_URL"] = TEST_DATABASE_URL or "postgresql://no-test-db@localhost:1/none"
 
+# Tests sign their own tokens with a fixed, test-only secret (never a real one).
+os.environ["JWT_SECRET"] = "test-only-secret-not-used-anywhere-real-0123456789"
+
+# Two fixed test users, created once per test run (see migrated_test_database).
+# Fixed IDs let test files make tokens at import time.
+TEST_USERS = {
+    "admin": ("00000000-0000-0000-0000-00000000a001", "test-admin"),
+    "analyst": ("00000000-0000-0000-0000-00000000a002", "test-analyst"),
+}
+TEST_PASSWORD = "correct-horse-battery-staple"
+
+
+def auth_headers(role: str = "analyst") -> dict:
+    """Headers that log a request in as the test admin or test analyst."""
+    from app.security import create_access_token
+
+    user_id, username = TEST_USERS[role]
+    token = create_access_token(user_id=user_id, username=username, role=role)
+    return {"Authorization": f"Bearer {token}"}
+
 SKIP_REASON = (
     "TEST_DATABASE_URL is not set, so database tests were skipped. "
     "See docs/setup.md, step 4."
@@ -96,4 +116,23 @@ def migrated_test_database():
         from alembic.config import Config
 
         command.upgrade(Config(str(BACKEND_DIR / "alembic.ini")), "head")
+        _ensure_test_users()
     yield
+
+
+def _ensure_test_users() -> None:
+    from uuid import UUID
+
+    from app.db import SessionLocal
+    from app.models import User
+    from app.security import hash_password
+
+    with SessionLocal() as session:
+        for role, (user_id, username) in TEST_USERS.items():
+            user = session.get(User, UUID(user_id))
+            if user is None:
+                user = User(id=UUID(user_id), username=username)
+                session.add(user)
+            user.role, user.is_active = role, True
+            user.password_hash = hash_password(TEST_PASSWORD)
+        session.commit()

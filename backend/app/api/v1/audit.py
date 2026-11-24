@@ -4,11 +4,12 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.deps import get_session
+from app.deps import admin_only, get_session
 from app.models import AuditLog
 from app.schemas import AuditOut
 
-router = APIRouter(prefix="/api/v1/audit", tags=["audit"])
+# The whole audit log (every user's actions) is for admins only.
+router = APIRouter(prefix="/api/v1/audit", tags=["audit"], dependencies=[Depends(admin_only)])
 
 
 @router.get("", response_model=list[AuditOut])
