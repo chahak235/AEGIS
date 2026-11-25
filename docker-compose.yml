@@ -1,10 +1,17 @@
-# Services that run in Docker for local development.
-# Start:  docker compose up -d      Stop:  docker compose down
-# (or press the play / stop buttons in Docker Desktop -> Containers)
+# Everything AEGIS needs, as containers. Docker Desktop shows them under "Containers".
+#
+#   docker compose up -d                                   -> only the test database (for pytest)
+#   docker compose --profile app up -d --build             -> the whole app: http://localhost:8080
+#   docker compose --profile app --profile monitoring up -d --build
+#                                                          -> + Prometheus (:9090) and Grafana (:3000)
+#   docker compose --profile app down                      -> stop (data in volumes is kept)
+#
+# Secrets come from a file named .env next to this file (copy .env.example).
+# Compose refuses to start if a required secret is missing (the ":?" below).
 
 services:
   # A throw-away PostgreSQL used ONLY by the automated tests.
-  # The real app data stays in Neon and is never touched by tests.
+  # The real app data is never touched by tests.
   test-db:
     image: postgres:16
     environment:
@@ -20,3 +27,80 @@ services:
       interval: 2s
       timeout: 3s
       retries: 15
+
+  # --- The application (profile "app") ---------------------------------------
+
+  db:
+    profiles: ["app"]
+    image: postgres:16
+    environment:
+      POSTGRES_USER: aegis
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: aegis
+    volumes:
+      - aegis-db-data:/var/lib/postgresql/data   # survives restarts; deleted only with "down -v"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aegis -d aegis"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    # No "ports:" on purpose: only the other containers can reach the database.
+
+  redis:
+    profiles: ["app"]
+    image: redis:7.4-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  api:
+    profiles: ["app"]
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql://aegis:${POSTGRES_PASSWORD}@db:5432/aegis
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      CORS_ORIGINS: http://localhost:8080
+      LOG_LEVEL: INFO
+    depends_on:
+      db: { condition: service_healthy }      # wait until PostgreSQL really accepts connections
+      redis: { condition: service_healthy }
+    ports:
+      - "8000:8000"   # so you can open http://localhost:8000/docs
+    restart: unless-stopped
+
+  web:
+    profiles: ["app"]
+    build: ./frontend
+    depends_on: [api]
+    ports:
+      - "8080:80"     # the dashboard: http://localhost:8080
+    restart: unless-stopped
+
+  # --- Monitoring (profile "monitoring") ------------------------------------------
+
+  prometheus:
+    profiles: ["monitoring"]
+    image: prom/prometheus:v3.1.0
+    volumes:
+      - ./infrastructure/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+
+  grafana:
+    profiles: ["monitoring"]
+    image: grafana/grafana:11.4.0
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD in .env}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./infrastructure/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infrastructure/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on: [prometheus]
+    ports:
+      - "3000:3000"
+
+volumes:
+  aegis-db-data:

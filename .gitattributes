@@ -1,0 +1,6 @@
+# Shell scripts run inside Linux containers and MUST keep Linux line endings (LF).
+# Without this, Git on Windows may convert them to CRLF and the container fails
+# with a confusing "/bin/sh^M: not found" error.
+*.sh text eol=lf
+# The trained model is binary: never touch its bytes.
+*.joblib binary

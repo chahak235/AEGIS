@@ -12,6 +12,6 @@ python-multipart   # reading the login form (username + password)
 redis              # shared rate-limit counters (optional: only used when REDIS_URL is set)
 prometheus-client  # /metrics for Prometheus
 # Machine learning (ML-001 anomaly detector)
-scikit-learn       # Isolation Forest
+scikit-learn==1.9.1  # Isolation Forest. PINNED: the saved model file must be loaded by the same version that trained it
 numpy
 joblib             # loads the saved model file

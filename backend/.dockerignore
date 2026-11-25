@@ -1,0 +1,11 @@
+# Files Docker must NOT copy into the image.
+# Secrets: an image can be shared or pushed to a registry, so never bake .env into it.
+.env
+.env.*
+!.env.example
+# Not needed at runtime
+tests/
+__pycache__/
+*.pyc
+.pytest_cache/
+requirements-dev.txt
