@@ -1,0 +1,9 @@
+# Prometheus "scrapes" (downloads) numbers from /metrics every 15 seconds and stores them over time.
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: aegis-api
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["api:8000"]   # "api" = the service name in docker-compose.yml

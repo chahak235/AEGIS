@@ -1,0 +1,8 @@
+# Loads every dashboard JSON file from /var/lib/grafana/dashboards.
+apiVersion: 1
+providers:
+  - name: AEGIS
+    folder: AEGIS
+    type: file
+    options:
+      path: /var/lib/grafana/dashboards
