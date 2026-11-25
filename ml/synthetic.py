@@ -96,7 +96,8 @@ class Generator:
         """Deliberately stays UNDER every hand-written rule threshold:
         4 failed logins (AUTH-001 needs 5), 2-4 denied (ACCESS-001 needs 5), few requests."""
         events = self._many(4, "auth.login.failed", "failure", ["/login"])
-        events += self._many(self.rng.randint(2, 4), "api.request", "denied", self._resources(2, 4, SENSITIVE_RESOURCES))
+        count = self.rng.randint(2, 4)  # draw in the same order as before, so the data stays reproducible
+        events += self._many(count, "api.request", "denied", self._resources(2, 4, SENSITIVE_RESOURCES))
         events += self._many(self.rng.randint(8, 20), "api.request", "success",
                              self._resources(8, 15, COMMON_RESOURCES + SENSITIVE_RESOURCES))
         return events

@@ -1,0 +1,27 @@
+# Ruff: a fast Python linter. It reads code and points out likely bugs and mess.
+# Run from the project folder:  ruff check backend ml
+# Fix what it can by itself:     ruff check backend ml --fix
+
+target-version = "py312"
+line-length = 120
+
+[lint]
+select = [
+  "E",   # pycodestyle errors (real formatting problems)
+  "F",   # pyflakes: unused imports/variables, undefined names
+  "I",   # import order
+  "B",   # bugbear: common bug patterns
+]
+ignore = [
+  "B008",  # "function call in default argument": FastAPI's Depends(...) is designed to be used this way
+]
+
+[lint.per-file-ignores]
+# Alembic-generated files: leave them as Alembic wrote them.
+"backend/alembic/**" = ["E501", "I001", "F401"]
+# The evaluation report is a Markdown template inside a string; wrapping it would change the report.
+"ml/train.py" = ["E501"]
+
+[lint.isort]
+# Our own code, so imports are grouped as: standard library / other libraries / ours.
+known-first-party = ["app", "conftest", "synthetic"]

@@ -9,8 +9,8 @@ from sqlalchemy.exc import DBAPIError
 
 from app.db import SessionLocal
 from app.main import app
-from conftest import auth_headers
 from app.models import AuditLog
+from conftest import auth_headers
 
 pytestmark = pytest.mark.db
 

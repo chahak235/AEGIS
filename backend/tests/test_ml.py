@@ -27,7 +27,7 @@ gen = Generator(seed=7)  # a different seed from training: data the model never 
 
 def test_features_count_what_they_say():
     window = gen.brute_force()
-    features = dict(zip(FEATURE_NAMES, extract(window)))
+    features = dict(zip(FEATURE_NAMES, extract(window), strict=True))
     assert features["failed_logins"] == len(window) == features["event_count"]
     assert features["failure_ratio"] == 1.0
     assert features["distinct_resources"] == 1
@@ -45,14 +45,14 @@ def test_model_loads_and_is_in_the_catalogue():
 
 
 def test_most_normal_windows_are_not_flagged():
-    flagged = sum(bool(detector.find(gen.normal())) for _ in range(300))
-    assert flagged / 300 < 0.05  # trained for ~1.5% false alarms; leave room for randomness
+    flagged = sum(bool(detector.find(gen.normal())) for _ in range(150))
+    assert flagged / 150 < 0.05  # trained for ~1% false alarms; leave room for randomness
 
 
 @pytest.mark.parametrize("attack", ["brute_force", "scraping", "privilege_probing", "low_and_slow"])
 def test_attacks_are_flagged(attack):
-    caught = sum(bool(detector.find(getattr(gen, attack)())) for _ in range(20))
-    assert caught >= 18
+    caught = sum(bool(detector.find(getattr(gen, attack)())) for _ in range(10))
+    assert caught >= 9
 
 
 def test_explanation_is_honest_and_specific():

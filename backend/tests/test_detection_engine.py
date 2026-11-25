@@ -12,8 +12,8 @@ from sqlalchemy import delete, select
 from app import ingest
 from app.db import SessionLocal
 from app.main import app
-from conftest import auth_headers
 from app.models import Detection, Event
+from conftest import auth_headers
 
 pytestmark = pytest.mark.db
 

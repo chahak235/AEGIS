@@ -50,7 +50,7 @@ def _user_from_token(token: str | None, session: Session) -> User | None:
         claims = decode_access_token(token)
         user_id = UUID(claims["sub"])
     except (jwt.InvalidTokenError, ValueError):
-        raise _unauthorized("Invalid or expired token")
+        raise _unauthorized("Invalid or expired token") from None
     user = session.get(User, user_id)
     # Checked on EVERY request: a deactivated user is locked out immediately,
     # even though their token has not expired yet.

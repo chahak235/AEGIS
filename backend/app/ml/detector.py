@@ -87,13 +87,14 @@ def find(events: Sequence[EventLike]) -> list[Group]:
     windows = live_windows(events)
     rows = [extract(w) for w in windows]
     scores = model.score_samples(rows)
-    flagged = [w for w, row, s in zip(windows, rows, scores)
+    flagged = [w for w, row, s in zip(windows, rows, scores, strict=True)
                if s < metadata["threshold"] or _max_z(row, metadata) > metadata["z_threshold"]]
     return merge_overlapping(flagged)
 
 
 def _z_scores(row: list[float], metadata: dict) -> list[float]:
-    return [(v - m) / s if s else 0.0 for v, m, s in zip(row, metadata["train_mean"], metadata["train_std"])]
+    pairs = zip(row, metadata["train_mean"], metadata["train_std"], strict=True)
+    return [(v - m) / s if s else 0.0 for v, m, s in pairs]
 
 
 def _max_z(row: list[float], metadata: dict) -> float:
@@ -107,7 +108,7 @@ def explain(group: Group) -> str:
     _, metadata = loaded
     values = extract(group)
     z = _z_scores(values, metadata)
-    ranked = sorted(zip(z, FEATURE_NAMES, values, metadata["train_mean"]), key=lambda t: -abs(t[0]))
+    ranked = sorted(zip(z, FEATURE_NAMES, values, metadata["train_mean"], strict=True), key=lambda t: -abs(t[0]))
     top = "; ".join(f"{name}={value:g} (normal about {mean:.1f})" for _, name, value, mean in ranked[:3])
     score = anomaly_score(group)
     reasons = []

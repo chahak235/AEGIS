@@ -204,7 +204,7 @@ def render_report(m: dict) -> str:
     )
     features = "\n".join(
         f"| `{name}` | {mean} | {std} |"
-        for name, mean, std in zip(m["feature_names"], m["train_mean"], m["train_std"])
+        for name, mean, std in zip(m["feature_names"], m["train_mean"], m["train_std"], strict=True)
     )
     n = m["dataset"]
     return f"""# ML Evaluation Report: Isolation Forest (`{m['model_version']}`)

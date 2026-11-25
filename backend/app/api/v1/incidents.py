@@ -108,7 +108,7 @@ def update_incident(
             check_transition(incident.status, changes.status)
         except InvalidTransition as error:
             # 409 Conflict: the request is valid, but not allowed in the incident's current state.
-            raise HTTPException(status_code=409, detail=str(error))
+            raise HTTPException(status_code=409, detail=str(error)) from error
 
         details = {"from": incident.status, "to": changes.status}
         if changes.status == "resolved":

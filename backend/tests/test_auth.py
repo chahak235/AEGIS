@@ -263,7 +263,8 @@ def test_sending_events_needs_a_key_or_login(actor):
 @pytest.mark.db
 def test_assigning_to_unknown_user_is_rejected(actor):
     for i in range(5):
-        analyst.post("/api/v1/events", json={**event_body(actor), "occurred_at": (T0 + timedelta(seconds=i)).isoformat()})
+        when = (T0 + timedelta(seconds=i)).isoformat()
+        analyst.post("/api/v1/events", json={**event_body(actor), "occurred_at": when})
     [incident] = analyst.get(f"/api/v1/incidents?actor_id={actor}").json()
     r = analyst.patch(f"/api/v1/incidents/{incident['id']}", json={"assigned_to": "ghost"})
     assert r.status_code == 422
@@ -272,7 +273,8 @@ def test_assigning_to_unknown_user_is_rejected(actor):
 @pytest.mark.db
 def test_notes_are_signed_with_the_logged_in_username(actor):
     for i in range(5):
-        analyst.post("/api/v1/events", json={**event_body(actor), "occurred_at": (T0 + timedelta(seconds=i)).isoformat()})
+        when = (T0 + timedelta(seconds=i)).isoformat()
+        analyst.post("/api/v1/events", json={**event_body(actor), "occurred_at": when})
     [incident] = analyst.get(f"/api/v1/incidents?actor_id={actor}").json()
     note = analyst.post(f"/api/v1/incidents/{incident['id']}/notes", json={"body": "hi"}).json()
     assert note["author"] == "test-analyst"
