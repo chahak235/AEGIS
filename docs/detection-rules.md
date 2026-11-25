@@ -4,6 +4,13 @@
 >
 > **Code:** `backend/app/detection/rules.py` (the rules), `backend/app/detection/engine.py` (runs them and saves results), `backend/app/api/v1/detections.py` (read them).
 > **Tests:** `test_rules.py` (21 unit tests), `test_detection_engine.py` (9), `test_detections_api.py` (6).
+>
+> **Since this was written:**
+> - a sixth detector, **ML-001** (machine learning), runs next to these rules ([ml.md](ml.md));
+> - detections are now grouped into **incidents** ([architecture.md](architecture.md));
+> - all endpoints need a **login** ([auth.md](auth.md)).
+>
+> The rule logic below is unchanged.
 
 ---
 
@@ -38,6 +45,7 @@ Later, **incidents** will group related detections into one investigation (e.g. 
 | **ACCESS-001** | Repeated access denied | ≥ 5 events with `outcome = denied` for one account within 5 min | medium | Someone is probing for things they're not allowed to do |
 | **ACCOUNT-001** | Sensitive account change | Any `account.permission.changed` | **high** | Attackers often give themselves admin rights after breaking in |
 | **API-001** | Unusual request volume | ≥ 100 `api.request` for one account within 1 min | medium | Scripts/bots scraping data or attacking, not a human clicking |
+| **ML-001** | Anomalous activity (machine learning) | Isolation Forest or extreme-value check flags a 10-min window | medium | Catches combinations no single rule covers. See [ml.md](ml.md) |
 
 You can see this table live at **`GET /api/v1/rules`** (open http://127.0.0.1:8000/docs).
 
@@ -200,7 +208,8 @@ Migration: `68178dad4e86_create_detections_and_detection_events_.py`.
 
 ## 7. Try it yourself (clicking)
 
-1. Start the app (see [setup.md](setup.md), step 7) and open **http://127.0.0.1:8000/docs**.
+1. Start the app (see [setup.md](setup.md), step 7) and open **http://127.0.0.1:8000/docs**. Click **Authorize** and log in first.
+   (Easier: the dashboard's **Simulator** page runs these scenarios with one click.)
 2. `GET /api/v1/rules` → **Try it out** → **Execute**: the 5 rules.
 3. `POST /api/v1/events` → **Try it out**. Paste this and **Execute** it **5 times**, changing the seconds each time (`:01`, `:02`, …):
    ```json
